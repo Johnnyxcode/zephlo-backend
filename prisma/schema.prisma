@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  departments Department[]
+  users       User[]
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+model User {
+  id           String      @id @default(uuid())
+  tenantId     String
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  name         String
+  role         UserRole    @default(STAFF)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@unique([tenantId, email])
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fieldDefinitions FieldDefinition[]
+  items            Item[]
+  users            User[]
+  linksFrom        DepartmentLink[]  @relation("FromDepartment")
+  linksTo          DepartmentLink[]  @relation("ToDepartment")
+  transfersOut     TransferRequest[] @relation("FromDepartment")
+  transfersIn      TransferRequest[] @relation("ToDepartment")
+  movements        InventoryMovement[]
+  purchaseOrders   PurchaseOrder[]
+
+  @@unique([tenantId, name])
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+}
+
+model FieldDefinition {
+  id           String     @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  type         FieldType
+  required     Boolean    @default(false)
+  config       Json?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@unique([departmentId, key])
+}
+
+model DepartmentLink {
+  id               String     @id @default(uuid())
+  tenantId         String
+  fromDepartmentId String
+  toDepartmentId   String
+  fromDepartment   Department @relation("FromDepartment", fields: [fromDepartmentId], references: [id], onDelete: Cascade)
+  toDepartment     Department @relation("ToDepartment", fields: [toDepartmentId], references: [id], onDelete: Cascade)
+  requiresApproval Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+
+  @@unique([fromDepartmentId, toDepartmentId])
+}
+
+model Item {
+  id           String   @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name         String
+  sku          String?
+  attributes   Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements     InventoryMovement[]
+  transferLines TransferLine[]
+}
+
+model InventoryMovement {
+  id             String     @id @default(uuid())
+  tenantId       String
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id])
+  itemId         String
+  item           Item       @relation(fields: [itemId], references: [id])
+  quantityDelta  Float
+  balanceAfter   Float
+  referenceType  String
+  referenceId    String?
+  createdAt      DateTime   @default(now())
+  createdByName  String?
+}
+
+enum TransferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model TransferRequest {
+  id               String         @id @default(uuid())
+  tenantId         String
+  fromDepartmentId String
+  toDepartmentId   String
+  fromDepartment   Department     @relation("FromDepartment", fields: [fromDepartmentId], references: [id])
+  toDepartment     Department     @relation("ToDepartment", fields: [toDepartmentId], references: [id])
+  status           TransferStatus @default(PENDING_APPROVAL)
+  requestedByName  String?
+  approvedByName   String?
+  rejectionReason  String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  completedAt      DateTime?
+
+  lines TransferLine[]
+}
+
+model TransferLine {
+  id                String          @id @default(uuid())
+  transferRequestId String
+  transferRequest   TransferRequest @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              Item            @relation(fields: [itemId], references: [id])
+  quantity          Float
+}
+
+model DomainEvent {
+  id        String   @id @default(uuid())
+  tenantId  String
+  type      String
+  actorName String?
+  payload   Json?
+  createdAt DateTime @default(now())
+}
+
+enum POStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id             String          @id @default(uuid())
+  tenantId       String
+  name           String
+  contactName    String?
+  contactEmail   String?
+  phone          String?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, name])
+}
+
+model PurchaseOrder {
+  id              String        @id @default(uuid())
+  tenantId        String
+  supplierId      String
+  departmentId    String
+  status          POStatus      @default(PENDING_APPROVAL)
+  requestedByName String?
+  approvedByName  String?
+  rejectionReason String?
+  notes           String?
+  expectedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  completedAt     DateTime?
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  department      Department    @relation(fields: [departmentId], references: [id])
+  lines           POLine[]
+}
+
+model POLine {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  itemName        String
+  sku             String?
+  quantity        Float
+  unitCost        Float         @default(0)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+}
+
+// ── Entity Engine ─────────────────────────────────────────────────────────────
+
+model EntityType {
+  id          String              @id @default(uuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  roles       Json                @default("[\"admin\",\"manager\"]")
+  fields      EntityField[]
+  records     EntityRecord[]
+  workflow    WorkflowDefinition?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([tenantId, slug])
+}
+
+model EntityField {
+  id           String     @id @default(uuid())
+  entityTypeId String
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  fieldType    FieldType
+  required     Boolean    @default(false)
+  config       Json?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@unique([entityTypeId, key])
+}
+
+model EntityRecord {
+  id           String     @id @default(uuid())
+  tenantId     String
+  entityTypeId String
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id])
+  attributes   Json       @default("{}")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  workflow     WorkflowInstance?
+}
+
+model WorkflowDefinition {
+  id           String     @id @default(uuid())
+  entityTypeId String     @unique
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id], onDelete: Cascade)
+  states       Json
+  transitions  Json
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model WorkflowInstance {
+  id             String           @id @default(uuid())
+  entityRecordId String           @unique
+  entityRecord   EntityRecord     @relation(fields: [entityRecordId], references: [id], onDelete: Cascade)
+  currentState   String
+  events         WorkflowEvent[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model WorkflowEvent {
+  id                 String           @id @default(uuid())
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id])
+  fromState          String
+  toState            String
+  transitionLabel    String
+  actorName          String?
+  note               String?
+  createdAt          DateTime         @default(now())
+}
