@@ -1,4 +1,4 @@
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
+﻿import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -24,7 +24,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`Stoqly API running on http://localhost:${port}/api/v1`);
+  console.log(`Zephlo API running on http://localhost:${port}/api/v1`);
 }
 
 bootstrap();

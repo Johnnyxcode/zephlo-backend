@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ConnectionsService } from './connections.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 
@@ -14,5 +14,10 @@ export class ConnectionsController {
   @Post()
   create(@Body() dto: CreateConnectionDto) {
     return this.connectionsService.create(dto);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.connectionsService.delete(id);
   }
 }

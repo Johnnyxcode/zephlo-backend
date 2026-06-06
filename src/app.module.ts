@@ -3,6 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AlertsController } from './alerts/alerts.controller';
 import { AlertsModule } from './alerts/alerts.module';
+import { EntityRecordsController } from './entity-records/entity-records.controller';
+import { EntityRecordsModule } from './entity-records/entity-records.module';
+import { EntityTypesController } from './entity-types/entity-types.controller';
+import { EntityTypesModule } from './entity-types/entity-types.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { TenantMiddleware } from './common/tenant/tenant.middleware';
@@ -22,6 +26,8 @@ import { PurchaseOrdersController } from './purchase-orders/purchase-orders.cont
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { ReportsController } from './reports/reports.controller';
 import { ReportsModule } from './reports/reports.module';
+import { RolesController } from './roles/roles.controller';
+import { RolesModule } from './roles/roles.module';
 import { SuppliersController } from './suppliers/suppliers.controller';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { TenantsController } from './tenants/tenants.controller';
@@ -45,6 +51,9 @@ import { TransfersModule } from './transfers/transfers.module';
     PurchaseOrdersModule,
     AlertsModule,
     DemoModule,
+    EntityTypesModule,
+    EntityRecordsModule,
+    RolesModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -67,6 +76,9 @@ export class AppModule implements NestModule {
         SuppliersController,
         PurchaseOrdersController,
         AlertsController,
+        EntityTypesController,
+        EntityRecordsController,
+        RolesController,
       );
     // PublicTenantsController and DemoController are intentionally excluded
   }

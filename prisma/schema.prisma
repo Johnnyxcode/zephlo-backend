@@ -15,6 +15,21 @@ model Tenant {
   updatedAt   DateTime     @updatedAt
   departments Department[]
   users       User[]
+  roles       Role[]
+}
+
+model Role {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String
+  isDefault    Boolean  @default(false)
+  capabilities Json     @default("[]")
+  color        String   @default("slate")
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, slug])
 }
 
 enum UserRole {
@@ -230,7 +245,7 @@ model EntityType {
   slug        String
   description String?
   icon        String?
-  roles       Json                @default("[\"admin\",\"manager\"]")
+  roles       Json?
   fields      EntityField[]
   records     EntityRecord[]
   workflow    WorkflowDefinition?
@@ -260,7 +275,7 @@ model EntityRecord {
   tenantId     String
   entityTypeId String
   entityType   EntityType @relation(fields: [entityTypeId], references: [id])
-  attributes   Json       @default("{}")
+  attributes   Json?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   workflow     WorkflowInstance?

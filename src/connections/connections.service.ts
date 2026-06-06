@@ -60,9 +60,19 @@ export class ConnectionsService {
     });
   }
 
+  async delete(id: string) {
+    const { tenantId } = getTenantContext();
+    const connection = await this.prisma.departmentLink.findFirst({
+      where: { id, tenantId },
+    });
+    if (!connection) throw new NotFoundException('Connection not found');
+    await this.prisma.departmentLink.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   private async assertDepartment(id: string, tenantId: string) {
     const dept = await this.prisma.department.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId }, 
     });
     if (!dept) {
       throw new NotFoundException('Department not found');

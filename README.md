@@ -1,4 +1,4 @@
-# Stoqly Backend
+﻿# Zephlo Backend
 
 NestJS API for the configurable multi-department inventory prototype.
 
@@ -6,7 +6,7 @@ NestJS API for the configurable multi-department inventory prototype.
 
 ### Docker (with frontend)
 
-From the parent `stoqly` folder:
+From the parent `zephlo` folder:
 
 ```bash
 docker compose up --build

@@ -1,9 +1,9 @@
-import { Controller, Get } from '@nestjs/common';
+﻿import { Controller, Get } from '@nestjs/common';
 
 @Controller('health')
 export class HealthController {
   @Get()
   check() {
-    return { ok: true, service: 'stoqly-api' };
+    return { ok: true, service: 'zephlo-api' };
   }
 }

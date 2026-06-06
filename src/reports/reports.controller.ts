@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Res } from '@nestjs/common';
+﻿import { Controller, Get, Header, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
 
@@ -22,7 +22,7 @@ export class ReportsController {
     const csv = await this.reportsService.exportCsv();
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="stoqly-report-${Date.now()}.csv"`,
+      `attachment; filename="zephlo-report-${Date.now()}.csv"`,
     );
     res.send(csv);
   }

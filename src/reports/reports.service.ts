@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getTenantContext } from '../common/tenant/tenant.context';
 import { InventoryService } from '../inventory/inventory.service';
@@ -103,7 +103,7 @@ export class ReportsService {
     const { movements, transfers, stockByDepartment } = await this.getAuditLog();
     const lines: string[] = [];
 
-    lines.push('STOQLY MOVEMENT REPORT');
+    lines.push('ZEPHLO MOVEMENT REPORT');
     lines.push(`Generated,${new Date().toISOString()}`);
     lines.push('');
 

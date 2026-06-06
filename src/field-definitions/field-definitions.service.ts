@@ -42,6 +42,16 @@ export class FieldDefinitionsService {
     });
   }
 
+  async delete(departmentId: string, fieldId: string) {
+    await this.assertDepartment(departmentId);
+    const field = await this.prisma.fieldDefinition.findFirst({
+      where: { id: fieldId, departmentId },
+    });
+    if (!field) throw new NotFoundException('Field not found');
+    await this.prisma.fieldDefinition.delete({ where: { id: fieldId } });
+    return { deleted: true };
+  }
+
   private async assertDepartment(departmentId: string) {
     const { tenantId } = getTenantContext();
     const department = await this.prisma.department.findFirst({

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { FieldDefinitionsService } from './field-definitions.service';
 import { CreateFieldDefinitionDto } from './dto/create-field-definition.dto';
 
@@ -17,5 +17,13 @@ export class FieldDefinitionsController {
     @Body() dto: CreateFieldDefinitionDto,
   ) {
     return this.fieldDefinitionsService.create(departmentId, dto);
+  }
+
+  @Delete(':fieldId')
+  delete(
+    @Param('departmentId') departmentId: string,
+    @Param('fieldId') fieldId: string,
+  ) {
+    return this.fieldDefinitionsService.delete(departmentId, fieldId);
   }
 }

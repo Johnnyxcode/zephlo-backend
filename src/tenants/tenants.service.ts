@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RolesService } from '../roles/roles.service';
 import { getTenantContext } from '../common/tenant/tenant.context';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 
@@ -14,7 +15,10 @@ function slugify(name: string): string {
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rolesService: RolesService,
+  ) {}
 
   async create(dto: CreateTenantDto) {
     const base = slugify(dto.name) || 'business';
@@ -37,6 +41,8 @@ export class TenantsService {
         payload: { name: tenant.name },
       },
     });
+
+    await this.rolesService.seedDefaults(tenant.id);
 
     return tenant;
   }
@@ -61,6 +67,12 @@ export class TenantsService {
 
     await this.prisma.$transaction([
       this.prisma.domainEvent.deleteMany({ where: { tenantId } }),
+      this.prisma.workflowEvent.deleteMany({ where: { workflowInstance: { entityRecord: { tenantId } } } }),
+      this.prisma.workflowInstance.deleteMany({ where: { entityRecord: { tenantId } } }),
+      this.prisma.entityRecord.deleteMany({ where: { tenantId } }),
+      this.prisma.workflowDefinition.deleteMany({ where: { entityType: { tenantId } } }),
+      this.prisma.entityField.deleteMany({ where: { entityType: { tenantId } } }),
+      this.prisma.entityType.deleteMany({ where: { tenantId } }),
       this.prisma.pOLine.deleteMany({ where: { purchaseOrder: { tenantId } } }),
       this.prisma.purchaseOrder.deleteMany({ where: { tenantId } }),
       this.prisma.transferLine.deleteMany({
@@ -78,7 +90,10 @@ export class TenantsService {
       this.prisma.supplier.deleteMany({ where: { tenantId } }),
       this.prisma.user.deleteMany({ where: { tenantId } }),
       this.prisma.department.deleteMany({ where: { tenantId } }),
+      this.prisma.role.deleteMany({ where: { tenantId } }),
     ]);
+
+    await this.rolesService.seedDefaults(tenantId);
 
     return { reset: true, tenantId };
   }
