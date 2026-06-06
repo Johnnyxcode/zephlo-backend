@@ -80,6 +80,7 @@ enum FieldType {
   BOOLEAN
   DATE
   SELECT
+  RELATION
 }
 
 model FieldDefinition {

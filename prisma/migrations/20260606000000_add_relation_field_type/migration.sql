@@ -1,0 +1,3 @@
+-- Add RELATION to FieldType enum
+-- SQLite stores enums as TEXT so no column alteration is needed.
+-- This migration exists to register the new enum value in Prisma's migration history.
