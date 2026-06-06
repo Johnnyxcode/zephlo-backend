@@ -17,6 +17,11 @@ export class EntityRecordsController {
     return this.entityRecordsService.create(slug, dto);
   }
 
+  @Get(':id/linked')
+  findLinked(@Param('slug') slug: string, @Param('id') id: string) {
+    return this.entityRecordsService.findLinked(slug, id);
+  }
+
   @Get(':id')
   findOne(@Param('slug') slug: string, @Param('id') id: string) {
     return this.entityRecordsService.findOne(slug, id);

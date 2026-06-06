@@ -111,6 +111,58 @@ export class EntityRecordsService {
     return { deleted: true };
   }
 
+  async findLinked(slug: string, recordId: string) {
+    const { tenantId } = getTenantContext();
+
+    // Find all entity types in this tenant that have at least one RELATION field pointing to `slug`
+    const allEntityTypes = await this.prisma.entityType.findMany({
+      where: { tenantId },
+      include: {
+        fields: { where: { fieldType: 'RELATION' } },
+      },
+    });
+
+    const result: Array<{
+      entityType: { id: string; name: string; slug: string; icon: string | null };
+      fieldKey: string;
+      fieldLabel: string;
+      records: unknown[];
+    }> = [];
+
+    for (const et of allEntityTypes) {
+      if (et.slug === slug) continue;
+
+      const relationFields = et.fields.filter((f) => {
+        const config = f.config as { targetEntityTypeSlug?: string } | null;
+        return config?.targetEntityTypeSlug === slug;
+      });
+
+      for (const rf of relationFields) {
+        const allRecords = await this.prisma.entityRecord.findMany({
+          where: { tenantId, entityTypeId: et.id },
+          include: { workflow: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const linked = allRecords.filter((r) => {
+          const attrs = r.attributes as Record<string, unknown> | null;
+          return attrs?.[rf.key] === recordId;
+        });
+
+        if (linked.length > 0) {
+          result.push({
+            entityType: { id: et.id, name: et.name, slug: et.slug, icon: et.icon },
+            fieldKey: rf.key,
+            fieldLabel: rf.label,
+            records: linked,
+          });
+        }
+      }
+    }
+
+    return result;
+  }
+
   async transition(slug: string, id: string, dto: TransitionRecordDto) {
     const et = await this.entityTypes.findBySlug(slug);
     const { tenantId } = getTenantContext();
