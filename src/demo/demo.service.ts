@@ -213,7 +213,7 @@ export class DemoService {
     }
 
     // Create entity types with fields, workflows, and seeded records
-    for (const et of config.entityTypes) {
+    for (const et of config.entityTypes ?? []) {
       const entityType = await this.prisma.entityType.create({
         data: {
           tenantId,
@@ -378,62 +378,62 @@ export class DemoService {
           { name: 'Olive Oil (1L)', sku: 'OIL-001', quantity: 12, unitCost: 3.20 },
         ],
       },
-      entityTypes: [
-        {
-          name: 'Customer',
-          slug: 'customer',
-          description: 'Guests and regular customers',
-          icon: 'Users',
-          roles: ['admin', 'manager'],
-          fields: [
-            { key: 'name', label: 'Full Name', fieldType: 'TEXT', required: true },
-            { key: 'email', label: 'Email', fieldType: 'TEXT' },
-            { key: 'phone', label: 'Phone', fieldType: 'TEXT' },
-            { key: 'notes', label: 'Notes', fieldType: 'TEXT' },
-          ],
-          workflow: null,
-          records: [
-            { attributes: { name: 'Sophie Williams', email: 'sophie@example.com', phone: '07700 900001', notes: 'Regular Thursday lunch' }, initialState: null },
-            { attributes: { name: 'James Patel', email: 'james@example.com', phone: '07700 900002', notes: 'Allergy: nuts' }, initialState: null },
-            { attributes: { name: 'Amara Osei', email: 'amara@example.com', phone: '07700 900003', notes: '' }, initialState: null },
-          ],
-        },
-        {
-          name: 'Reservation',
-          slug: 'reservation',
-          description: 'Table bookings and walk-ins',
-          icon: 'ClipboardCheck',
-          roles: ['admin', 'manager', 'staff'],
-          fields: [
-            { key: 'customer_name', label: 'Customer Name', fieldType: 'TEXT', required: true },
-            { key: 'date', label: 'Date', fieldType: 'DATE', required: true },
-            { key: 'party_size', label: 'Party Size', fieldType: 'NUMBER', required: true },
-            { key: 'table', label: 'Table Number', fieldType: 'TEXT' },
-            { key: 'special_requests', label: 'Special Requests', fieldType: 'TEXT' },
-          ],
-          workflow: {
-            states: [
-              { id: 'pending', label: 'Pending', initial: true, color: 'amber' },
-              { id: 'confirmed', label: 'Confirmed', color: 'blue' },
-              { id: 'seated', label: 'Seated', color: 'purple' },
-              { id: 'completed', label: 'Completed', terminal: true, color: 'emerald' },
-              { id: 'cancelled', label: 'Cancelled', terminal: true, color: 'red' },
-            ],
-            transitions: [
-              { id: 'confirm', from: 'pending', to: 'confirmed', label: 'Confirm' },
-              { id: 'seat', from: 'confirmed', to: 'seated', label: 'Seat guests' },
-              { id: 'complete', from: 'seated', to: 'completed', label: 'Complete' },
-              { id: 'cancel_pending', from: 'pending', to: 'cancelled', label: 'Cancel', requiresApproval: true },
-              { id: 'cancel_confirmed', from: 'confirmed', to: 'cancelled', label: 'Cancel', requiresApproval: true },
-            ],
-          },
-          records: [
-            { attributes: { customer_name: 'Sophie Williams', date: '2026-06-07', party_size: 4, table: 'T3', special_requests: 'Window seat preferred' }, initialState: 'confirmed' },
-            { attributes: { customer_name: 'James Patel', date: '2026-06-07', party_size: 2, table: '', special_requests: 'Nut allergy' }, initialState: 'pending' },
-            { attributes: { customer_name: 'Amara Osei', date: '2026-06-05', party_size: 6, table: 'T7', special_requests: '' }, initialState: 'completed' },
-          ],
-        },
-      ],
+      // entityTypes: [
+      //   {
+      //     name: 'Customer',
+      //     slug: 'customer',
+      //     description: 'Guests and regular customers',
+      //     icon: 'Users',
+      //     roles: ['admin', 'manager'],
+      //     fields: [
+      //       { key: 'name', label: 'Full Name', fieldType: 'TEXT', required: true },
+      //       { key: 'email', label: 'Email', fieldType: 'TEXT' },
+      //       { key: 'phone', label: 'Phone', fieldType: 'TEXT' },
+      //       { key: 'notes', label: 'Notes', fieldType: 'TEXT' },
+      //     ],
+      //     workflow: null,
+      //     records: [
+      //       { attributes: { name: 'Sophie Williams', email: 'sophie@example.com', phone: '07700 900001', notes: 'Regular Thursday lunch' }, initialState: null },
+      //       { attributes: { name: 'James Patel', email: 'james@example.com', phone: '07700 900002', notes: 'Allergy: nuts' }, initialState: null },
+      //       { attributes: { name: 'Amara Osei', email: 'amara@example.com', phone: '07700 900003', notes: '' }, initialState: null },
+      //     ],
+      //   },
+      //   {
+      //     name: 'Reservation',
+      //     slug: 'reservation',
+      //     description: 'Table bookings and walk-ins',
+      //     icon: 'ClipboardCheck',
+      //     roles: ['admin', 'manager', 'staff'],
+      //     fields: [
+      //       { key: 'customer_name', label: 'Customer Name', fieldType: 'TEXT', required: true },
+      //       { key: 'date', label: 'Date', fieldType: 'DATE', required: true },
+      //       { key: 'party_size', label: 'Party Size', fieldType: 'NUMBER', required: true },
+      //       { key: 'table', label: 'Table Number', fieldType: 'TEXT' },
+      //       { key: 'special_requests', label: 'Special Requests', fieldType: 'TEXT' },
+      //     ],
+      //     workflow: {
+      //       states: [
+      //         { id: 'pending', label: 'Pending', initial: true, color: 'amber' },
+      //         { id: 'confirmed', label: 'Confirmed', color: 'blue' },
+      //         { id: 'seated', label: 'Seated', color: 'purple' },
+      //         { id: 'completed', label: 'Completed', terminal: true, color: 'emerald' },
+      //         { id: 'cancelled', label: 'Cancelled', terminal: true, color: 'red' },
+      //       ],
+      //       transitions: [
+      //         { id: 'confirm', from: 'pending', to: 'confirmed', label: 'Confirm' },
+      //         { id: 'seat', from: 'confirmed', to: 'seated', label: 'Seat guests' },
+      //         { id: 'complete', from: 'seated', to: 'completed', label: 'Complete' },
+      //         { id: 'cancel_pending', from: 'pending', to: 'cancelled', label: 'Cancel', requiresApproval: true },
+      //         { id: 'cancel_confirmed', from: 'confirmed', to: 'cancelled', label: 'Cancel', requiresApproval: true },
+      //       ],
+      //     },
+      //     records: [
+      //       { attributes: { customer_name: 'Sophie Williams', date: '2026-06-07', party_size: 4, table: 'T3', special_requests: 'Window seat preferred' }, initialState: 'confirmed' },
+      //       { attributes: { customer_name: 'James Patel', date: '2026-06-07', party_size: 2, table: '', special_requests: 'Nut allergy' }, initialState: 'pending' },
+      //       { attributes: { customer_name: 'Amara Osei', date: '2026-06-05', party_size: 6, table: 'T7', special_requests: '' }, initialState: 'completed' },
+      //     ],
+      //   },
+      // ],
     };
   }
 
@@ -520,62 +520,62 @@ export class DemoService {
           { name: 'Latex Gloves (box of 100)', sku: 'SUP-GLV-001', quantity: 15, unitCost: 8.00 },
         ],
       },
-      entityTypes: [
-        {
-          name: 'Patient',
-          slug: 'patient',
-          description: 'Registered patients at the clinic',
-          icon: 'Users',
-          roles: ['admin', 'manager'],
-          fields: [
-            { key: 'name', label: 'Full Name', fieldType: 'TEXT', required: true },
-            { key: 'dob', label: 'Date of Birth', fieldType: 'DATE' },
-            { key: 'contact', label: 'Contact Number', fieldType: 'TEXT' },
-            { key: 'medical_record_number', label: 'Medical Record No.', fieldType: 'TEXT' },
-            { key: 'notes', label: 'Clinical Notes', fieldType: 'TEXT' },
-          ],
-          workflow: null,
-          records: [
-            { attributes: { name: 'Eleanor Voss', dob: '1978-03-14', contact: '07700 900101', medical_record_number: 'MRN-0041', notes: 'Hypertension, annual review due' }, initialState: null },
-            { attributes: { name: 'Marcus Obi', dob: '1992-11-05', contact: '07700 900102', medical_record_number: 'MRN-0042', notes: 'Diabetic — monitor HbA1c' }, initialState: null },
-            { attributes: { name: 'Priya Sharma', dob: '1965-07-22', contact: '07700 900103', medical_record_number: 'MRN-0043', notes: '' }, initialState: null },
-          ],
-        },
-        {
-          name: 'Appointment',
-          slug: 'appointment',
-          description: 'Patient appointments and consultations',
-          icon: 'Stethoscope',
-          roles: ['admin', 'manager', 'staff'],
-          fields: [
-            { key: 'patient_name', label: 'Patient Name', fieldType: 'TEXT', required: true },
-            { key: 'date', label: 'Date', fieldType: 'DATE', required: true },
-            { key: 'time', label: 'Time', fieldType: 'TEXT' },
-            { key: 'doctor', label: 'Doctor', fieldType: 'TEXT' },
-            { key: 'type', label: 'Appointment Type', fieldType: 'SELECT', config: { options: ['Consultation', 'Follow-up', 'Procedure', 'Emergency'] } },
-          ],
-          workflow: {
-            states: [
-              { id: 'scheduled', label: 'Scheduled', initial: true, color: 'blue' },
-              { id: 'checked_in', label: 'Checked In', color: 'amber' },
-              { id: 'in_progress', label: 'In Progress', color: 'purple' },
-              { id: 'completed', label: 'Completed', terminal: true, color: 'emerald' },
-              { id: 'cancelled', label: 'Cancelled', terminal: true, color: 'red' },
-            ],
-            transitions: [
-              { id: 'check_in', from: 'scheduled', to: 'checked_in', label: 'Check in' },
-              { id: 'start', from: 'checked_in', to: 'in_progress', label: 'Start consultation' },
-              { id: 'complete', from: 'in_progress', to: 'completed', label: 'Complete' },
-              { id: 'cancel', from: 'scheduled', to: 'cancelled', label: 'Cancel', requiresApproval: true },
-            ],
-          },
-          records: [
-            { attributes: { patient_name: 'Eleanor Voss', date: '2026-06-06', time: '09:30', doctor: 'Dr. Williams', type: 'Follow-up' }, initialState: 'scheduled' },
-            { attributes: { patient_name: 'Marcus Obi', date: '2026-06-06', time: '10:15', doctor: 'Dr. Chen', type: 'Consultation' }, initialState: 'checked_in' },
-            { attributes: { patient_name: 'Priya Sharma', date: '2026-06-04', time: '14:00', doctor: 'Dr. Williams', type: 'Procedure' }, initialState: 'completed' },
-          ],
-        },
-      ],
+      // entityTypes: [
+      //   {
+      //     name: 'Patient',
+      //     slug: 'patient',
+      //     description: 'Registered patients at the clinic',
+      //     icon: 'Users',
+      //     roles: ['admin', 'manager'],
+      //     fields: [
+      //       { key: 'name', label: 'Full Name', fieldType: 'TEXT', required: true },
+      //       { key: 'dob', label: 'Date of Birth', fieldType: 'DATE' },
+      //       { key: 'contact', label: 'Contact Number', fieldType: 'TEXT' },
+      //       { key: 'medical_record_number', label: 'Medical Record No.', fieldType: 'TEXT' },
+      //       { key: 'notes', label: 'Clinical Notes', fieldType: 'TEXT' },
+      //     ],
+      //     workflow: null,
+      //     records: [
+      //       { attributes: { name: 'Eleanor Voss', dob: '1978-03-14', contact: '07700 900101', medical_record_number: 'MRN-0041', notes: 'Hypertension, annual review due' }, initialState: null },
+      //       { attributes: { name: 'Marcus Obi', dob: '1992-11-05', contact: '07700 900102', medical_record_number: 'MRN-0042', notes: 'Diabetic — monitor HbA1c' }, initialState: null },
+      //       { attributes: { name: 'Priya Sharma', dob: '1965-07-22', contact: '07700 900103', medical_record_number: 'MRN-0043', notes: '' }, initialState: null },
+      //     ],
+      //   },
+      //   {
+      //     name: 'Appointment',
+      //     slug: 'appointment',
+      //     description: 'Patient appointments and consultations',
+      //     icon: 'Stethoscope',
+      //     roles: ['admin', 'manager', 'staff'],
+      //     fields: [
+      //       { key: 'patient_name', label: 'Patient Name', fieldType: 'TEXT', required: true },
+      //       { key: 'date', label: 'Date', fieldType: 'DATE', required: true },
+      //       { key: 'time', label: 'Time', fieldType: 'TEXT' },
+      //       { key: 'doctor', label: 'Doctor', fieldType: 'TEXT' },
+      //       { key: 'type', label: 'Appointment Type', fieldType: 'SELECT', config: { options: ['Consultation', 'Follow-up', 'Procedure', 'Emergency'] } },
+      //     ],
+      //     workflow: {
+      //       states: [
+      //         { id: 'scheduled', label: 'Scheduled', initial: true, color: 'blue' },
+      //         { id: 'checked_in', label: 'Checked In', color: 'amber' },
+      //         { id: 'in_progress', label: 'In Progress', color: 'purple' },
+      //         { id: 'completed', label: 'Completed', terminal: true, color: 'emerald' },
+      //         { id: 'cancelled', label: 'Cancelled', terminal: true, color: 'red' },
+      //       ],
+      //       transitions: [
+      //         { id: 'check_in', from: 'scheduled', to: 'checked_in', label: 'Check in' },
+      //         { id: 'start', from: 'checked_in', to: 'in_progress', label: 'Start consultation' },
+      //         { id: 'complete', from: 'in_progress', to: 'completed', label: 'Complete' },
+      //         { id: 'cancel', from: 'scheduled', to: 'cancelled', label: 'Cancel', requiresApproval: true },
+      //       ],
+      //     },
+      //     records: [
+      //       { attributes: { patient_name: 'Eleanor Voss', date: '2026-06-06', time: '09:30', doctor: 'Dr. Williams', type: 'Follow-up' }, initialState: 'scheduled' },
+      //       { attributes: { patient_name: 'Marcus Obi', date: '2026-06-06', time: '10:15', doctor: 'Dr. Chen', type: 'Consultation' }, initialState: 'checked_in' },
+      //       { attributes: { patient_name: 'Priya Sharma', date: '2026-06-04', time: '14:00', doctor: 'Dr. Williams', type: 'Procedure' }, initialState: 'completed' },
+      //     ],
+      //   },
+      // ],
     };
   }
 }
