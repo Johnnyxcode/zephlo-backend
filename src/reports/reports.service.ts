@@ -75,32 +75,36 @@ export class ReportsService {
   async getAuditLog() {
     const { tenantId } = getTenantContext();
 
-    const movements = await this.prisma.inventoryMovement.findMany({
-      where: { tenantId },
-      include: {
-        item: { select: { name: true, sku: true } },
-        department: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [movements, transfers] = await Promise.all([
+      this.prisma.inventoryMovement.findMany({
+        where: { tenantId },
+        include: {
+          item: { select: { name: true, sku: true } },
+          department: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      this.prisma.transferRequest.findMany({
+        where: { tenantId },
+        include: {
+          fromDepartment: { select: { name: true } },
+          toDepartment: { select: { name: true } },
+          lines: { include: { item: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      }),
+    ]);
 
-    const transfers = await this.prisma.transferRequest.findMany({
-      where: { tenantId },
-      include: {
-        fromDepartment: { select: { name: true } },
-        toDepartment: { select: { name: true } },
-        lines: { include: { item: { select: { name: true } } } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const stockByDepartment = await this.getOverview().then((o) => o.stockByDepartment);
-
-    return { movements, transfers, stockByDepartment };
+    return { movements, transfers };
   }
 
   async exportCsv(): Promise<string> {
-    const { movements, transfers, stockByDepartment } = await this.getAuditLog();
+    const [{ stockByDepartment }, { movements, transfers }] = await Promise.all([
+      this.getOverview(),
+      this.getAuditLog(),
+    ]);
     const lines: string[] = [];
 
     lines.push('ZEPHLO MOVEMENT REPORT');

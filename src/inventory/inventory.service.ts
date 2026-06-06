@@ -57,16 +57,27 @@ export class InventoryService {
   }
 
   async getDepartmentStock(departmentId: string) {
-    const items = await this.prisma.item.findMany({
-      where: { departmentId },
-      orderBy: { name: 'asc' },
-    });
+    const [items, movements] = await Promise.all([
+      this.prisma.item.findMany({
+        where: { departmentId },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.inventoryMovement.findMany({
+        where: { departmentId },
+        orderBy: { createdAt: 'desc' },
+        select: { itemId: true, balanceAfter: true },
+      }),
+    ]);
 
-    return Promise.all(
-      items.map(async (item) => ({
-        ...item,
-        quantity: await this.getBalance(item.id, departmentId),
-      })),
-    );
+    // Build balance map in one pass — first seen per itemId is the latest (desc order).
+    const balanceMap = new Map<string, number>();
+    for (const m of movements) {
+      if (!balanceMap.has(m.itemId)) balanceMap.set(m.itemId, m.balanceAfter);
+    }
+
+    return items.map((item) => ({
+      ...item,
+      quantity: balanceMap.get(item.id) ?? 0,
+    }));
   }
 }

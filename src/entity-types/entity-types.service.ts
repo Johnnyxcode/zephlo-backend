@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getTenantContext } from '../common/tenant/tenant.context';
 import { CreateEntityTypeDto } from './dto/create-entity-type.dto';
@@ -135,7 +136,7 @@ export class EntityTypesService {
         label: dto.label,
         fieldType: dto.fieldType,
         required: dto.required ?? false,
-        config: dto.config !== undefined ? (dto.config as any) : undefined,
+        config: dto.config !== undefined ? (dto.config as Prisma.InputJsonValue) : undefined,
         sortOrder: dto.sortOrder ?? count,
       },
     });
@@ -167,12 +168,12 @@ export class EntityTypesService {
       where: { entityTypeId: et.id },
       create: {
         entityTypeId: et.id,
-        states: dto.states as any,
-        transitions: dto.transitions as any,
+        states: dto.states as unknown as Prisma.InputJsonValue,
+        transitions: dto.transitions as unknown as Prisma.InputJsonValue,
       },
       update: {
-        states: dto.states as any,
-        transitions: dto.transitions as any,
+        states: dto.states as unknown as Prisma.InputJsonValue,
+        transitions: dto.transitions as unknown as Prisma.InputJsonValue,
       },
     });
   }

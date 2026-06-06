@@ -3,11 +3,28 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getTenantContext } from '../common/tenant/tenant.context';
 import { EntityTypesService } from '../entity-types/entity-types.service';
 import { CreateEntityRecordDto } from './dto/create-entity-record.dto';
 import { TransitionRecordDto } from './dto/transition-record.dto';
+
+type WorkflowState = {
+  id: string;
+  label: string;
+  color?: string;
+  initial?: boolean;
+  final?: boolean;
+};
+
+type WorkflowTransition = {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+  requiresApproval?: boolean;
+};
 
 const RECORD_INCLUDE = {
   workflow: { include: { events: { orderBy: { createdAt: 'desc' as const } } } },
@@ -49,14 +66,14 @@ export class EntityRecordsService {
       data: {
         tenantId,
         entityTypeId: et.id,
-        attributes: (dto.attributes ?? {}) as any,
+        attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue,
       },
       include: RECORD_INCLUDE,
     });
 
     // Auto-create WorkflowInstance if entity type has a workflow
     if (et.workflow) {
-      const states = et.workflow.states as Array<{ id: string; initial?: boolean }>;
+      const states = et.workflow.states as WorkflowState[];
       const initialState = states.find((s) => s.initial);
       if (initialState) {
         await this.prisma.workflowInstance.create({
@@ -78,7 +95,7 @@ export class EntityRecordsService {
 
     await this.prisma.entityRecord.update({
       where: { id },
-      data: { attributes: (dto.attributes ?? {}) as any },
+      data: { attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue },
     });
     return this.findOne(slug, id);
   }
@@ -107,9 +124,7 @@ export class EntityRecordsService {
     if (!record) throw new NotFoundException('Record not found');
     if (!record.workflow) throw new BadRequestException('Record has no workflow instance');
 
-    const transitions = et.workflow.transitions as Array<{
-      id: string; from: string; to: string; label: string; requiresApproval?: boolean;
-    }>;
+    const transitions = et.workflow.transitions as WorkflowTransition[];
     const transition = transitions.find((t) => t.id === dto.transitionId);
     if (!transition) throw new NotFoundException(`Transition "${dto.transitionId}" not found`);
     if (transition.from !== record.workflow.currentState) {
