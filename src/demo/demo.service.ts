@@ -212,56 +212,6 @@ export class DemoService {
       });
     }
 
-    // Create entity types with fields, workflows, and seeded records
-    for (const et of config.entityTypes ?? []) {
-      const entityType = await this.prisma.entityType.create({
-        data: {
-          tenantId,
-          name: et.name,
-          slug: et.slug,
-          description: et.description,
-          icon: et.icon,
-          roles: et.roles,
-        },
-      });
-
-      for (let i = 0; i < et.fields.length; i++) {
-        const f = et.fields[i];
-        await this.prisma.entityField.create({
-          data: {
-            entityTypeId: entityType.id,
-            key: f.key,
-            label: f.label,
-            fieldType: f.fieldType as any,
-            required: f.required ?? false,
-            config: (f as any).config ?? undefined,
-            sortOrder: i,
-          },
-        });
-      }
-
-      if (et.workflow) {
-        await this.prisma.workflowDefinition.create({
-          data: {
-            entityTypeId: entityType.id,
-            states: et.workflow.states as any,
-            transitions: et.workflow.transitions as any,
-          },
-        });
-      }
-
-      for (const record of et.records ?? []) {
-        const entityRecord = await this.prisma.entityRecord.create({
-          data: { tenantId, entityTypeId: entityType.id, attributes: record.attributes },
-        });
-
-        if (et.workflow && record.initialState) {
-          await this.prisma.workflowInstance.create({
-            data: { entityRecordId: entityRecord.id, currentState: record.initialState },
-          });
-        }
-      }
-    }
 
     await this.prisma.domainEvent.create({
       data: { tenantId, type: 'demo.seeded', actorName: 'System', payload: { scenario } },
