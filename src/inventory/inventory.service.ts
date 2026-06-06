@@ -1,5 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+type MovementParams = {
+  tenantId: string;
+  departmentId: string;
+  itemId: string;
+  quantityDelta: number;
+  referenceType: string;
+  referenceId?: string;
+  createdByName?: string;
+};
 
 @Injectable()
 export class InventoryService {
@@ -13,26 +24,20 @@ export class InventoryService {
     return latest?.balanceAfter ?? 0;
   }
 
-  async recordMovement(params: {
-    tenantId: string;
-    departmentId: string;
-    itemId: string;
-    quantityDelta: number;
-    referenceType: string;
-    referenceId?: string;
-    createdByName?: string;
-  }) {
-    const current = await this.getBalance(
-      params.itemId,
-      params.departmentId,
-    );
-    const balanceAfter = current + params.quantityDelta;
-
+  // For use inside an existing $transaction — no nested transaction.
+  async applyMovementInTx(
+    tx: Prisma.TransactionClient,
+    params: MovementParams,
+  ) {
+    const latest = await tx.inventoryMovement.findFirst({
+      where: { itemId: params.itemId, departmentId: params.departmentId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const balanceAfter = (latest?.balanceAfter ?? 0) + params.quantityDelta;
     if (balanceAfter < 0) {
       throw new BadRequestException('Insufficient stock');
     }
-
-    return this.prisma.inventoryMovement.create({
+    return tx.inventoryMovement.create({
       data: {
         tenantId: params.tenantId,
         departmentId: params.departmentId,
@@ -44,6 +49,11 @@ export class InventoryService {
         createdByName: params.createdByName,
       },
     });
+  }
+
+  // Standalone call — wraps in its own transaction so balance read + write are atomic.
+  async recordMovement(params: MovementParams) {
+    return this.prisma.$transaction((tx) => this.applyMovementInTx(tx, params));
   }
 
   async getDepartmentStock(departmentId: string) {

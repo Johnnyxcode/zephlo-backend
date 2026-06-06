@@ -52,49 +52,52 @@ export class TransfersService {
       );
     }
 
-    for (const line of dto.lines) {
-      const item = await this.prisma.item.findFirst({
-        where: { id: line.itemId, departmentId: dto.fromDepartmentId },
-      });
-      if (!item) {
-        throw new BadRequestException(
-          `Item ${line.itemId} does not belong to the sending department`,
-        );
+    // Validate items and stock inside a transaction so the balance reads
+    // are consistent with the transfer creation — prevents TOCTOU races.
+    const transfer = await this.prisma.$transaction(async (tx) => {
+      for (const line of dto.lines) {
+        const item = await tx.item.findFirst({
+          where: { id: line.itemId, departmentId: dto.fromDepartmentId },
+        });
+        if (!item) {
+          throw new BadRequestException(
+            `Item ${line.itemId} does not belong to the sending department`,
+          );
+        }
+        const latest = await tx.inventoryMovement.findFirst({
+          where: { itemId: line.itemId, departmentId: dto.fromDepartmentId },
+          orderBy: { createdAt: 'desc' },
+        });
+        const balance = latest?.balanceAfter ?? 0;
+        if (balance < line.quantity) {
+          throw new BadRequestException(`Insufficient stock for ${item.name}`);
+        }
       }
-      const balance = await this.inventory.getBalance(
-        line.itemId,
-        dto.fromDepartmentId,
-      );
-      if (balance < line.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for ${item.name}`,
-        );
-      }
-    }
 
-    const status = link.requiresApproval
-      ? TransferStatus.PENDING_APPROVAL
-      : TransferStatus.APPROVED;
+      const status = link.requiresApproval
+        ? TransferStatus.PENDING_APPROVAL
+        : TransferStatus.APPROVED;
 
-    const transfer = await this.prisma.transferRequest.create({
-      data: {
-        tenantId,
-        fromDepartmentId: dto.fromDepartmentId,
-        toDepartmentId: dto.toDepartmentId,
-        status,
-        requestedByName: dto.requestedByName ?? 'Staff',
-        lines: {
-          create: dto.lines.map((l) => ({
-            itemId: l.itemId,
-            quantity: l.quantity,
-          })),
+      return tx.transferRequest.create({
+        data: {
+          tenantId,
+          fromDepartmentId: dto.fromDepartmentId,
+          toDepartmentId: dto.toDepartmentId,
+          status,
+          requestedByName: dto.requestedByName ?? 'Staff',
+          lines: {
+            create: dto.lines.map((l) => ({
+              itemId: l.itemId,
+              quantity: l.quantity,
+            })),
+          },
         },
-      },
-      include: {
-        fromDepartment: { select: { id: true, name: true } },
-        toDepartment: { select: { id: true, name: true } },
-        lines: { include: { item: true } },
-      },
+        include: {
+          fromDepartment: { select: { id: true, name: true } },
+          toDepartment: { select: { id: true, name: true } },
+          lines: { include: { item: true } },
+        },
+      });
     });
 
     await this.prisma.domainEvent.create({
@@ -102,7 +105,7 @@ export class TransfersService {
         tenantId,
         type: 'transfer.created',
         actorName: dto.requestedByName ?? 'Staff',
-        payload: { transferId: transfer.id, status },
+        payload: { transferId: transfer.id, status: transfer.status },
       },
     });
 
@@ -161,9 +164,7 @@ export class TransfersService {
       include: { lines: { include: { item: true } } },
     });
 
-    if (!transfer) {
-      throw new NotFoundException('Transfer not found');
-    }
+    if (!transfer) throw new NotFoundException('Transfer not found');
 
     if (
       transfer.status !== TransferStatus.APPROVED &&
@@ -172,58 +173,57 @@ export class TransfersService {
       throw new BadRequestException('Transfer cannot be completed');
     }
 
-    for (const line of transfer.lines) {
-      await this.inventory.recordMovement({
-        tenantId,
-        departmentId: transfer.fromDepartmentId,
-        itemId: line.itemId,
-        quantityDelta: -line.quantity,
-        referenceType: 'TRANSFER',
-        referenceId: transfer.id,
-        createdByName: actorName,
-      });
+    // All movements + status update in one transaction — partial application is impossible.
+    const completed = await this.prisma.$transaction(async (tx) => {
+      for (const line of transfer.lines) {
+        await this.inventory.applyMovementInTx(tx, {
+          tenantId,
+          departmentId: transfer.fromDepartmentId,
+          itemId: line.itemId,
+          quantityDelta: -line.quantity,
+          referenceType: 'TRANSFER',
+          referenceId: transfer.id,
+          createdByName: actorName,
+        });
 
-      let receivingItem = await this.prisma.item.findFirst({
-        where: {
+        let receivingItem = await tx.item.findFirst({
+          where: { departmentId: transfer.toDepartmentId, name: line.item.name },
+        });
+        if (!receivingItem) {
+          receivingItem = await tx.item.create({
+            data: {
+              departmentId: transfer.toDepartmentId,
+              name: line.item.name,
+              sku: line.item.sku,
+              attributes: line.item.attributes ?? {},
+            },
+          });
+        }
+
+        await this.inventory.applyMovementInTx(tx, {
+          tenantId,
           departmentId: transfer.toDepartmentId,
-          name: line.item.name,
-        },
-      });
-
-      if (!receivingItem) {
-        receivingItem = await this.prisma.item.create({
-          data: {
-            departmentId: transfer.toDepartmentId,
-            name: line.item.name,
-            sku: line.item.sku,
-            attributes: line.item.attributes ?? {},
-          },
+          itemId: receivingItem.id,
+          quantityDelta: line.quantity,
+          referenceType: 'TRANSFER',
+          referenceId: transfer.id,
+          createdByName: actorName,
         });
       }
 
-      await this.inventory.recordMovement({
-        tenantId,
-        departmentId: transfer.toDepartmentId,
-        itemId: receivingItem.id,
-        quantityDelta: line.quantity,
-        referenceType: 'TRANSFER',
-        referenceId: transfer.id,
-        createdByName: actorName,
+      return tx.transferRequest.update({
+        where: { id },
+        data: {
+          status: TransferStatus.COMPLETED,
+          completedAt: new Date(),
+          approvedByName: actorName,
+        },
+        include: {
+          fromDepartment: { select: { id: true, name: true } },
+          toDepartment: { select: { id: true, name: true } },
+          lines: { include: { item: true } },
+        },
       });
-    }
-
-    const completed = await this.prisma.transferRequest.update({
-      where: { id },
-      data: {
-        status: TransferStatus.COMPLETED,
-        completedAt: new Date(),
-        approvedByName: actorName,
-      },
-      include: {
-        fromDepartment: { select: { id: true, name: true } },
-        toDepartment: { select: { id: true, name: true } },
-        lines: { include: { item: true } },
-      },
     });
 
     await this.prisma.domainEvent.create({
