@@ -10,15 +10,12 @@ export class ReportsService {
     private readonly inventory: InventoryService,
   ) {}
 
-  async getOverview() {
-    const { tenantId } = getTenantContext();
-
+  private async getStockByDepartment(tenantId: string) {
     const departments = await this.prisma.department.findMany({
       where: { tenantId },
       orderBy: { name: 'asc' },
     });
-
-    const stockByDepartment = await Promise.all(
+    return Promise.all(
       departments.map(async (dept) => {
         const items = await this.inventory.getDepartmentStock(dept.id);
         const totalUnits = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -36,6 +33,12 @@ export class ReportsService {
         };
       }),
     );
+  }
+
+  async getOverview() {
+    const { tenantId } = getTenantContext();
+
+    const stockByDepartment = await this.getStockByDepartment(tenantId);
 
     const recentMovements = await this.prisma.inventoryMovement.findMany({
       where: { tenantId },
@@ -75,7 +78,7 @@ export class ReportsService {
   async getAuditLog() {
     const { tenantId } = getTenantContext();
 
-    const [movements, transfers] = await Promise.all([
+    const [movements, transfers, stockByDepartment] = await Promise.all([
       this.prisma.inventoryMovement.findMany({
         where: { tenantId },
         include: {
@@ -95,9 +98,10 @@ export class ReportsService {
         orderBy: { createdAt: 'desc' },
         take: 200,
       }),
+      this.getStockByDepartment(tenantId),
     ]);
 
-    return { movements, transfers };
+    return { movements, transfers, stockByDepartment };
   }
 
   async exportCsv(): Promise<string> {
