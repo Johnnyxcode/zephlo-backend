@@ -9,6 +9,10 @@ export class POLineDto {
   @IsString()
   sku?: string;
 
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
   @IsNumber()
   @Min(0.01)
   quantity: number;

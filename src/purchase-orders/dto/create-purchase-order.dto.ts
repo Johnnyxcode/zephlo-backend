@@ -28,6 +28,10 @@ export class CreatePurchaseOrderDto {
   notes?: string;
 
   @IsOptional()
+  @IsString()
+  waybillNumber?: string;
+
+  @IsOptional()
   @IsDateString()
   expectedAt?: string;
 

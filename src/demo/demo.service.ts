@@ -45,6 +45,28 @@ type EntityTypeSeed = {
   records: Array<{ key: string; attributes: Record<string, unknown>; initialState: string | null }>;
 };
 
+type RevenueEngineSeed = {
+  taxRates: Array<{ name: string; rate: number; isDefault?: boolean }>;
+  catalogItems: Array<{ key: string; name: string; sku?: string; sellingPrice: number; costPrice?: number; unit?: string; taxRateKey?: string }>;
+  customers: Array<{ key: string; name: string; email?: string; phone?: string; address?: string; notes?: string }>;
+  saleOrders: Array<{
+    customerKey: string;
+    reference?: string;
+    status: string;
+    notes?: string;
+    lines: Array<{ catalogItemKey: string; quantity: number; unitPrice: number }>;
+  }>;
+  invoices: Array<{
+    customerKey: string;
+    saleOrderKey?: string;
+    dueDate?: string;
+    notes?: string;
+    status: string;
+    lines: Array<{ description: string; catalogItemKey?: string; quantity: number; unitPrice: number; taxRate?: number }>;
+    payments: Array<{ amount: number; method: string; reference?: string; notes?: string }>;
+  }>;
+};
+
 @Injectable()
 export class DemoService {
   constructor(
@@ -252,6 +274,95 @@ export class DemoService {
       }
     }
 
+    // ── Revenue Engine ─────────────────────────────────────────────────────────
+    if (config.revenueEngine) {
+      const re = config.revenueEngine;
+
+      const taxRateMap: Record<string, string> = {};
+      for (const tr of re.taxRates) {
+        const created = await this.prisma.taxRate.create({ data: { tenantId, name: tr.name, rate: tr.rate, isDefault: tr.isDefault ?? false } });
+        taxRateMap[tr.name] = created.id;
+      }
+
+      const catalogMap: Record<string, string> = {};
+      for (const ci of re.catalogItems) {
+        const created = await this.prisma.catalogItem.create({
+          data: {
+            tenantId, name: ci.name, sku: ci.sku, sellingPrice: ci.sellingPrice,
+            costPrice: ci.costPrice ?? 0, unit: ci.unit,
+            taxRateId: ci.taxRateKey ? taxRateMap[ci.taxRateKey] : undefined,
+          },
+        });
+        catalogMap[ci.key] = created.id;
+      }
+
+      const customerMap: Record<string, string> = {};
+      for (const cu of re.customers) {
+        const created = await this.prisma.customer.create({
+          data: { tenantId, name: cu.name, email: cu.email, phone: cu.phone, address: cu.address, notes: cu.notes },
+        });
+        customerMap[cu.key] = created.id;
+      }
+
+      const saleOrderMap: Record<string, string> = {};
+      for (let i = 0; i < re.saleOrders.length; i++) {
+        const so = re.saleOrders[i];
+        const created = await this.prisma.saleOrder.create({
+          data: {
+            tenantId, customerId: customerMap[so.customerKey], reference: so.reference,
+            status: so.status as any, notes: so.notes,
+            lines: { create: so.lines.map((l) => ({ catalogItemId: catalogMap[l.catalogItemKey], quantity: l.quantity, unitPrice: l.unitPrice, discount: 0 })) },
+          },
+        });
+        saleOrderMap[`order_${i}`] = created.id;
+      }
+
+      let invoiceCounter = 1;
+      for (let i = 0; i < re.invoices.length; i++) {
+        const inv = re.invoices[i];
+        let subtotal = 0, taxAmount = 0;
+        const computedLines = inv.lines.map((l) => {
+          const base = l.quantity * l.unitPrice;
+          const tax = base * ((l.taxRate ?? 0) / 100);
+          subtotal += base; taxAmount += tax;
+          return { ...l, lineTotal: base + tax };
+        });
+        const total = subtotal + taxAmount;
+        const invoiceNumber = `INV-${String(invoiceCounter++).padStart(4, '0')}`;
+
+        const paidAmount = inv.payments.reduce((s, p) => s + p.amount, 0);
+        const invoiceStatus = inv.status === 'PAID' && paidAmount >= total ? 'PAID'
+          : paidAmount > 0 ? 'PARTIALLY_PAID'
+          : inv.status;
+
+        const created = await this.prisma.invoice.create({
+          data: {
+            tenantId, invoiceNumber, customerId: customerMap[inv.customerKey],
+            saleOrderId: inv.saleOrderKey ? saleOrderMap[inv.saleOrderKey] : undefined,
+            dueDate: inv.dueDate ? new Date(inv.dueDate) : undefined,
+            notes: inv.notes, discount: 0, subtotal, taxAmount, total,
+            paidAmount, status: invoiceStatus as any,
+            lines: {
+              create: computedLines.map((l) => ({
+                catalogItemId: l.catalogItemKey ? catalogMap[l.catalogItemKey] : undefined,
+                description: l.description, quantity: l.quantity, unitPrice: l.unitPrice,
+                taxRate: l.taxRate ?? 0, discount: 0, lineTotal: l.lineTotal,
+              })),
+            },
+          },
+        });
+
+        for (const p of inv.payments) {
+          await this.prisma.payment.create({
+            data: {
+              tenantId, invoiceId: created.id, amount: p.amount,
+              method: p.method as any, reference: p.reference, notes: p.notes,
+            },
+          });
+        }
+      }
+    }
+
     await this.prisma.domainEvent.create({
       data: { tenantId, type: 'demo.seeded', actorName: 'System', payload: { scenario } },
     });
@@ -277,6 +388,15 @@ export class DemoService {
       this.prisma.fieldDefinition.deleteMany({ where: { department: { tenantId } } }),
       this.prisma.departmentLink.deleteMany({ where: { tenantId } }),
       this.prisma.supplier.deleteMany({ where: { tenantId } }),
+      // Revenue Engine — delete in FK dependency order
+      this.prisma.payment.deleteMany({ where: { tenantId } }),
+      this.prisma.invoiceLine.deleteMany({ where: { invoice: { tenantId } } }),
+      this.prisma.invoice.deleteMany({ where: { tenantId } }),
+      this.prisma.saleOrderLine.deleteMany({ where: { saleOrder: { tenantId } } }),
+      this.prisma.saleOrder.deleteMany({ where: { tenantId } }),
+      this.prisma.catalogItem.deleteMany({ where: { tenantId } }),
+      this.prisma.taxRate.deleteMany({ where: { tenantId } }),
+      this.prisma.customer.deleteMany({ where: { tenantId } }),
       this.prisma.user.deleteMany({ where: { tenantId } }),
       this.prisma.department.deleteMany({ where: { tenantId } }),
       this.prisma.tenant.delete({ where: { id: tenantId } }),
@@ -403,6 +523,73 @@ export class DemoService {
         lines: [{ name: 'Pasta (500g)', sku: 'PAS-001', quantity: 48, unitCost: 0.80 }, { name: 'Olive Oil (1L)', sku: 'OIL-001', quantity: 12, unitCost: 3.20 }],
       },
       entityTypes,
+      revenueEngine: {
+        taxRates: [
+          { name: 'VAT 20%', rate: 20, isDefault: true },
+          { name: 'Zero-rated', rate: 0 },
+        ],
+        catalogItems: [
+          { key: 'salmon', name: 'Grilled Salmon', sku: 'FOOD-001', sellingPrice: 18.50, costPrice: 7.00, unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'chicken_pasta', name: 'Chicken Pasta', sku: 'FOOD-002', sellingPrice: 14.00, costPrice: 4.50, unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'steak', name: 'Ribeye Steak', sku: 'FOOD-003', sellingPrice: 26.00, costPrice: 10.00, unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'red_wine', name: 'House Red Wine (bottle)', sku: 'DRK-001', sellingPrice: 22.00, costPrice: 6.50, unit: 'bottle', taxRateKey: 'VAT 20%' },
+          { key: 'still_water', name: 'Still Water (500ml)', sku: 'DRK-002', sellingPrice: 3.50, costPrice: 0.50, unit: 'bottle', taxRateKey: 'VAT 20%' },
+          { key: 'dessert', name: 'Chocolate Fondant', sku: 'FOOD-004', sellingPrice: 7.50, costPrice: 2.00, unit: 'portion', taxRateKey: 'VAT 20%' },
+        ],
+        customers: [
+          { key: 'emma', name: 'Emma Thompson', email: 'emma.thompson@hartley-corp.co.uk', phone: '07700 900501', address: '12 Hartley Place, London, EC2A 1NT', notes: 'Monthly corporate dinner account' },
+          { key: 'lawson', name: 'Lawson Group Ltd', email: 'accounts@lawsongroup.co.uk', phone: '020 7946 0601', address: '55 Cannon Street, London, EC4N 6AP', notes: 'Quarterly events client — invoice on 30-day terms' },
+          { key: 'oliver', name: 'Oliver Nash', email: 'oliver.nash@gmail.com', phone: '07700 900502', address: '3 Riverside Walk, London, SE1 7PB', notes: 'Regular weekend guest' },
+        ],
+        saleOrders: [
+          {
+            customerKey: 'lawson', reference: 'EVT-2026-Q2', status: 'INVOICED', notes: 'Q2 corporate dinner — 8 guests',
+            lines: [
+              { catalogItemKey: 'salmon', quantity: 3, unitPrice: 18.50 },
+              { catalogItemKey: 'steak', quantity: 2, unitPrice: 26.00 },
+              { catalogItemKey: 'chicken_pasta', quantity: 3, unitPrice: 14.00 },
+              { catalogItemKey: 'red_wine', quantity: 3, unitPrice: 22.00 },
+            ],
+          },
+          {
+            customerKey: 'emma', reference: 'TBL-042', status: 'CONFIRMED', notes: 'Table booking — lunch for 2',
+            lines: [
+              { catalogItemKey: 'salmon', quantity: 1, unitPrice: 18.50 },
+              { catalogItemKey: 'chicken_pasta', quantity: 1, unitPrice: 14.00 },
+              { catalogItemKey: 'still_water', quantity: 2, unitPrice: 3.50 },
+            ],
+          },
+          {
+            customerKey: 'oliver', reference: 'TBL-051', status: 'DRAFT', notes: 'Saturday dinner — awaiting confirmation',
+            lines: [
+              { catalogItemKey: 'steak', quantity: 1, unitPrice: 26.00 },
+              { catalogItemKey: 'red_wine', quantity: 1, unitPrice: 22.00 },
+              { catalogItemKey: 'dessert', quantity: 1, unitPrice: 7.50 },
+            ],
+          },
+        ],
+        invoices: [
+          {
+            customerKey: 'lawson', saleOrderKey: 'order_0', status: 'PAID',
+            dueDate: '2026-06-15', notes: 'Q2 corporate dinner — 30-day terms',
+            lines: [
+              { catalogItemKey: 'salmon', description: 'Grilled Salmon × 3', quantity: 3, unitPrice: 18.50, taxRate: 20 },
+              { catalogItemKey: 'steak', description: 'Ribeye Steak × 2', quantity: 2, unitPrice: 26.00, taxRate: 20 },
+              { catalogItemKey: 'chicken_pasta', description: 'Chicken Pasta × 3', quantity: 3, unitPrice: 14.00, taxRate: 20 },
+              { catalogItemKey: 'red_wine', description: 'House Red Wine × 3', quantity: 3, unitPrice: 22.00, taxRate: 20 },
+            ],
+            payments: [{ amount: 241.20, method: 'BANK_TRANSFER', reference: 'BACS-20260601', notes: 'Full settlement' }],
+          },
+          {
+            customerKey: 'emma', status: 'SENT',
+            dueDate: '2026-06-20', notes: 'Monthly account — May dining',
+            lines: [
+              { description: 'May dining — 3 visits', quantity: 1, unitPrice: 95.00, taxRate: 20 },
+            ],
+            payments: [{ amount: 50.00, method: 'BANK_TRANSFER', reference: 'BACS-20260605', notes: 'Partial payment' }],
+          },
+        ],
+      } as RevenueEngineSeed,
     };
   }
 
@@ -525,6 +712,68 @@ export class DemoService {
         lines: [{ name: 'Bandages (box of 10)', sku: 'SUP-BND-001', quantity: 20, unitCost: 3.50 }, { name: 'Latex Gloves (box of 100)', sku: 'SUP-GLV-001', quantity: 15, unitCost: 8.00 }],
       },
       entityTypes,
+      revenueEngine: {
+        taxRates: [
+          { name: 'VAT 20%', rate: 20, isDefault: true },
+          { name: 'Zero-rated', rate: 0 },
+        ],
+        catalogItems: [
+          { key: 'gp_consult', name: 'GP Consultation', sku: 'SVC-001', sellingPrice: 60.00, costPrice: 0, unit: 'session', taxRateKey: 'Zero-rated' },
+          { key: 'follow_up', name: 'Follow-up Appointment', sku: 'SVC-002', sellingPrice: 40.00, costPrice: 0, unit: 'session', taxRateKey: 'Zero-rated' },
+          { key: 'blood_test', name: 'Blood Test', sku: 'SVC-003', sellingPrice: 35.00, costPrice: 8.00, unit: 'test', taxRateKey: 'Zero-rated' },
+          { key: 'procedure', name: 'Minor Procedure', sku: 'SVC-004', sellingPrice: 120.00, costPrice: 20.00, unit: 'session', taxRateKey: 'Zero-rated' },
+          { key: 'prescription', name: 'Prescription Fee', sku: 'SVC-005', sellingPrice: 9.90, costPrice: 0, unit: 'item', taxRateKey: 'Zero-rated' },
+          { key: 'xray', name: 'X-Ray', sku: 'SVC-006', sellingPrice: 85.00, costPrice: 15.00, unit: 'scan', taxRateKey: 'Zero-rated' },
+        ],
+        customers: [
+          { key: 'eleanor', name: 'Eleanor Voss', email: 'eleanor.voss@email.co.uk', phone: '07700 900101', address: '14 Oakfield Road, Manchester, M21 9JT', notes: 'NHS + private top-up account' },
+          { key: 'marcus', name: 'Marcus Obi', email: 'marcus.obi@email.co.uk', phone: '07700 900102', address: '88 Lime Street, Liverpool, L1 1JQ', notes: 'Diabetic — regular quarterly reviews' },
+          { key: 'hartfield', name: 'Hartfield Insurance Ltd', email: 'claims@hartfield-insurance.co.uk', phone: '020 7946 0801', address: '32 Bishopsgate, London, EC2N 4AJ', notes: 'Corporate insurer — 30-day invoice terms' },
+        ],
+        saleOrders: [
+          {
+            customerKey: 'hartfield', reference: 'CORP-2026-05', status: 'INVOICED', notes: 'May corporate health plan — 4 employees',
+            lines: [
+              { catalogItemKey: 'gp_consult', quantity: 4, unitPrice: 60.00 },
+              { catalogItemKey: 'blood_test', quantity: 4, unitPrice: 35.00 },
+            ],
+          },
+          {
+            customerKey: 'eleanor', reference: 'APT-0041', status: 'CONFIRMED', notes: 'Annual review + blood panel',
+            lines: [
+              { catalogItemKey: 'gp_consult', quantity: 1, unitPrice: 60.00 },
+              { catalogItemKey: 'blood_test', quantity: 1, unitPrice: 35.00 },
+            ],
+          },
+          {
+            customerKey: 'marcus', reference: 'APT-0042', status: 'DRAFT', notes: 'HbA1c test + follow-up',
+            lines: [
+              { catalogItemKey: 'blood_test', quantity: 1, unitPrice: 35.00 },
+              { catalogItemKey: 'follow_up', quantity: 1, unitPrice: 40.00 },
+            ],
+          },
+        ],
+        invoices: [
+          {
+            customerKey: 'hartfield', saleOrderKey: 'order_0', status: 'PAID',
+            dueDate: '2026-06-15', notes: 'May corporate health plan — Hartfield Insurance',
+            lines: [
+              { catalogItemKey: 'gp_consult', description: 'GP Consultation × 4', quantity: 4, unitPrice: 60.00, taxRate: 0 },
+              { catalogItemKey: 'blood_test', description: 'Blood Test × 4', quantity: 4, unitPrice: 35.00, taxRate: 0 },
+            ],
+            payments: [{ amount: 380.00, method: 'BANK_TRANSFER', reference: 'BACS-20260602', notes: 'Full settlement — Hartfield Insurance' }],
+          },
+          {
+            customerKey: 'eleanor', status: 'SENT',
+            dueDate: '2026-06-25', notes: 'Annual review visit — May 2026',
+            lines: [
+              { catalogItemKey: 'gp_consult', description: 'GP Consultation', quantity: 1, unitPrice: 60.00, taxRate: 0 },
+              { catalogItemKey: 'blood_test', description: 'Blood Test', quantity: 1, unitPrice: 35.00, taxRate: 0 },
+            ],
+            payments: [],
+          },
+        ],
+      } as RevenueEngineSeed,
     };
   }
 }

@@ -3,6 +3,16 @@ import { ItemsService } from './items.service';
 import { BulkImportItemsDto } from './dto/bulk-import-items.dto';
 import { CreateItemDto } from './dto/create-item.dto';
 
+@Controller('items')
+export class AllItemsController {
+  constructor(private readonly itemsService: ItemsService) {}
+
+  @Get()
+  findAll() {
+    return this.itemsService.findAllForTenant();
+  }
+}
+
 @Controller('departments/:departmentId/items')
 export class ItemsController {
   constructor(private readonly itemsService: ItemsService) {}

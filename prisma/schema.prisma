@@ -123,6 +123,7 @@ model Item {
 
   movements     InventoryMovement[]
   transferLines TransferLine[]
+  catalogItems  CatalogItem[]
 }
 
 model InventoryMovement {
@@ -218,6 +219,7 @@ model PurchaseOrder {
   approvedByName  String?
   rejectionReason String?
   notes           String?
+  waybillNumber   String?
   expectedAt      DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -232,6 +234,7 @@ model POLine {
   purchaseOrderId String
   itemName        String
   sku             String?
+  unit            String?
   quantity        Float
   unitCost        Float         @default(0)
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
@@ -312,4 +315,169 @@ model WorkflowEvent {
   actorName          String?
   note               String?
   createdAt          DateTime         @default(now())
+}
+
+// ── Order-to-Cash (Revenue Engine) ────────────────────────────────────────────
+
+model Customer {
+  id         String    @id @default(uuid())
+  tenantId   String
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  notes      String?
+  attributes Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  orders   SaleOrder[]
+  invoices Invoice[]
+
+  @@unique([tenantId, email])
+}
+
+model TaxRate {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  rate      Float
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  catalogItems CatalogItem[]
+
+  @@unique([tenantId, name])
+}
+
+model CatalogItem {
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  sku          String?
+  description  String?
+  sellingPrice Float    @default(0)
+  costPrice    Float    @default(0)
+  unit         String?
+  taxRateId    String?
+  taxRate      TaxRate? @relation(fields: [taxRateId], references: [id])
+  entityRecordId String?
+  itemId       String?
+  item         Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orderLines   SaleOrderLine[]
+  invoiceLines InvoiceLine[]
+
+  @@unique([tenantId, name])
+}
+
+enum SaleOrderStatus {
+  DRAFT
+  CONFIRMED
+  INVOICED
+  CANCELLED
+}
+
+model SaleOrder {
+  id            String          @id @default(uuid())
+  tenantId      String
+  customerId    String
+  customer      Customer        @relation(fields: [customerId], references: [id])
+  status        SaleOrderStatus @default(DRAFT)
+  reference     String?
+  notes         String?
+  createdByName String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  lines    SaleOrderLine[]
+  invoices Invoice[]
+}
+
+model SaleOrderLine {
+  id            String      @id @default(uuid())
+  saleOrderId   String
+  saleOrder     SaleOrder   @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  catalogItemId String
+  catalogItem   CatalogItem @relation(fields: [catalogItemId], references: [id])
+  description   String?
+  quantity      Float
+  unitPrice     Float
+  discount      Float       @default(0)
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+  WRITTEN_OFF
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  tenantId      String
+  invoiceNumber String
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  saleOrderId   String?
+  saleOrder     SaleOrder?    @relation(fields: [saleOrderId], references: [id])
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime?
+  notes         String?
+  discount      Float         @default(0)
+  subtotal      Float         @default(0)
+  taxAmount     Float         @default(0)
+  total         Float         @default(0)
+  paidAmount    Float         @default(0)
+  createdByName String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lines    InvoiceLine[]
+  payments Payment[]
+
+  @@unique([tenantId, invoiceNumber])
+}
+
+model InvoiceLine {
+  id            String       @id @default(uuid())
+  invoiceId     String
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  catalogItemId String?
+  catalogItem   CatalogItem? @relation(fields: [catalogItemId], references: [id])
+  description   String
+  quantity      Float
+  unitPrice     Float
+  taxRate       Float        @default(0)
+  discount      Float        @default(0)
+  lineTotal     Float
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CHEQUE
+  OTHER
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  tenantId       String
+  invoiceId      String
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
+  amount         Float
+  method         PaymentMethod @default(CASH)
+  reference      String?
+  paidAt         DateTime      @default(now())
+  recordedByName String?
+  notes          String?
+  createdAt      DateTime      @default(now())
 }

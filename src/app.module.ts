@@ -3,6 +3,18 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AlertsController } from './alerts/alerts.controller';
 import { AlertsModule } from './alerts/alerts.module';
+import { CustomersController } from './customers/customers.controller';
+import { CustomersModule } from './customers/customers.module';
+import { TaxRatesController } from './tax-rates/tax-rates.controller';
+import { TaxRatesModule } from './tax-rates/tax-rates.module';
+import { CatalogController } from './catalog/catalog.controller';
+import { CatalogModule } from './catalog/catalog.module';
+import { SaleOrdersController } from './sale-orders/sale-orders.controller';
+import { SaleOrdersModule } from './sale-orders/sale-orders.module';
+import { InvoicesController } from './invoices/invoices.controller';
+import { InvoicesModule } from './invoices/invoices.module';
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsModule } from './payments/payments.module';
 import { EntityRecordsController } from './entity-records/entity-records.controller';
 import { EntityRecordsModule } from './entity-records/entity-records.module';
 import { EntityTypesController } from './entity-types/entity-types.controller';
@@ -19,7 +31,7 @@ import { FieldDefinitionsController } from './field-definitions/field-definition
 import { FieldDefinitionsModule } from './field-definitions/field-definitions.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
-import { ItemsController } from './items/items.controller';
+import { AllItemsController, ItemsController } from './items/items.controller';
 import { ItemsModule } from './items/items.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PurchaseOrdersController } from './purchase-orders/purchase-orders.controller';
@@ -54,6 +66,12 @@ import { TransfersModule } from './transfers/transfers.module';
     EntityTypesModule,
     EntityRecordsModule,
     RolesModule,
+    CustomersModule,
+    TaxRatesModule,
+    CatalogModule,
+    SaleOrdersModule,
+    InvoicesModule,
+    PaymentsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -70,6 +88,7 @@ export class AppModule implements NestModule {
         FieldDefinitionsController,
         ConnectionsController,
         ItemsController,
+        AllItemsController,
         TransfersController,
         ReportsController,
         TenantsController,
@@ -79,6 +98,12 @@ export class AppModule implements NestModule {
         EntityTypesController,
         EntityRecordsController,
         RolesController,
+        CustomersController,
+        TaxRatesController,
+        CatalogController,
+        SaleOrdersController,
+        InvoicesController,
+        PaymentsController,
       );
     // PublicTenantsController and DemoController are intentionally excluded
   }

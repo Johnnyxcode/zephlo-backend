@@ -18,6 +18,26 @@ export class ItemsService {
     return this.inventory.getDepartmentStock(departmentId);
   }
 
+  async findAllForTenant() {
+    const { tenantId } = getTenantContext();
+    const items = await this.prisma.item.findMany({
+      where: { department: { tenantId } },
+      include: { department: { select: { id: true, name: true } } },
+      orderBy: [{ department: { name: 'asc' } }, { name: 'asc' }],
+    });
+    if (items.length === 0) return [];
+    const movements = await this.prisma.inventoryMovement.findMany({
+      where: { itemId: { in: items.map((i) => i.id) } },
+      orderBy: { createdAt: 'desc' },
+      select: { itemId: true, balanceAfter: true },
+    });
+    const balanceMap = new Map<string, number>();
+    for (const m of movements) {
+      if (!balanceMap.has(m.itemId)) balanceMap.set(m.itemId, m.balanceAfter);
+    }
+    return items.map((item) => ({ ...item, quantity: balanceMap.get(item.id) ?? 0 }));
+  }
+
   async create(departmentId: string, dto: CreateItemDto) {
     const { tenantId } = getTenantContext();
     await this.assertDepartment(departmentId);

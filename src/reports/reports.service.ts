@@ -78,7 +78,7 @@ export class ReportsService {
   async getAuditLog() {
     const { tenantId } = getTenantContext();
 
-    const [movements, transfers, stockByDepartment] = await Promise.all([
+    const [movements, transfers, stockByDepartment, purchaseOrders, invoiceSummary] = await Promise.all([
       this.prisma.inventoryMovement.findMany({
         where: { tenantId },
         include: {
@@ -99,9 +99,55 @@ export class ReportsService {
         take: 200,
       }),
       this.getStockByDepartment(tenantId),
+      this.prisma.purchaseOrder.findMany({
+        where: { tenantId },
+        include: {
+          supplier: { select: { name: true } },
+          department: { select: { name: true } },
+          lines: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      this.prisma.invoice.findMany({
+        where: { tenantId },
+        select: { total: true, paidAmount: true, status: true, issueDate: true },
+      }).catch(() => [] as Array<{ total: number; paidAmount: number; status: string; issueDate: Date }>),
     ]);
 
-    return { movements, transfers, stockByDepartment };
+    // Aggregate purchase totals by day / week / month
+    const spendingByDay = aggregateByPeriod(purchaseOrders, 'day');
+    const spendingByWeek = aggregateByPeriod(purchaseOrders, 'week');
+    const spendingByMonth = aggregateByPeriod(purchaseOrders, 'month');
+
+    // PnL summary
+    const invoices = invoiceSummary as Array<{ total: number; paidAmount: number }>;
+    const totalRevenue = invoices.reduce<number>((s, i) => s + i.total, 0);
+    const totalPaid = invoices.reduce<number>((s, i) => s + i.paidAmount, 0);
+    const totalCogs = purchaseOrders
+      .filter((po) => po.status === 'RECEIVED')
+      .reduce<number>((s, po) => s + po.lines.reduce<number>((ls, l) => ls + l.quantity * l.unitCost, 0), 0);
+    const totalPoCost = purchaseOrders.reduce<number>((s, po) => s + po.lines.reduce<number>((ls, l) => ls + l.quantity * l.unitCost, 0), 0);
+    const grossProfit: number = totalRevenue - totalCogs;
+
+    return {
+      movements,
+      transfers,
+      stockByDepartment,
+      purchaseOrders,
+      spendingByDay,
+      spendingByWeek,
+      spendingByMonth,
+      pnl: {
+        totalRevenue,
+        totalPaid,
+        totalCogs,
+        totalPoCost,
+        grossProfit,
+        invoiceCount: invoiceSummary.length,
+        poCount: purchaseOrders.length,
+      },
+    };
   }
 
   async exportCsv(): Promise<string> {
@@ -176,9 +222,61 @@ export class ReportsService {
           .join(','),
       );
     }
+    lines.push('');
+
+    const { purchaseOrders } = await this.getAuditLog();
+    lines.push('PURCHASE ORDERS');
+    lines.push('Date,Supplier,Department,Status,Waybill,Notes,Item,SKU,Unit,Qty,Unit Cost,Line Total');
+    for (const po of purchaseOrders) {
+      for (const l of po.lines) {
+        lines.push(
+          [
+            po.createdAt.toISOString(),
+            po.supplier.name,
+            po.department.name,
+            po.status,
+            po.waybillNumber ?? '',
+            po.notes ?? '',
+            l.itemName,
+            l.sku ?? '',
+            l.unit ?? '',
+            l.quantity,
+            l.unitCost,
+            l.quantity * l.unitCost,
+          ]
+            .map(escapeCsv)
+            .join(','),
+        );
+      }
+    }
 
     return lines.join('\n');
   }
+}
+
+type POWithLines = { createdAt: Date; lines: Array<{ quantity: number; unitCost: number }> };
+
+function aggregateByPeriod(orders: POWithLines[], granularity: 'day' | 'week' | 'month') {
+  const map = new Map<string, number>();
+  for (const po of orders) {
+    const d = new Date(po.createdAt);
+    let key: string;
+    if (granularity === 'day') {
+      key = d.toISOString().slice(0, 10);
+    } else if (granularity === 'week') {
+      const dow = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((dow + 6) % 7));
+      key = monday.toISOString().slice(0, 10);
+    } else {
+      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const total = po.lines.reduce((s, l) => s + l.quantity * l.unitCost, 0);
+    map.set(key, (map.get(key) ?? 0) + total);
+  }
+  return Array.from(map.entries())
+    .map(([period, total]) => ({ period, total }))
+    .sort((a, b) => a.period.localeCompare(b.period));
 }
 
 function escapeCsv(value: unknown): string {

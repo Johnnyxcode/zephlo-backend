@@ -1,14 +1,34 @@
 # Zephlo Platform Roadmap
 
+## Two-Platform Architecture
+
+Zephlo is built on two complementary engines that share stock as a common bridge:
+
+| Platform | Purpose | Core Flow |
+|---|---|---|
+| **Procure-to-Pay (Ops Engine)** | Cost and operations side — everything entering the business | Supplier → Purchase Order → Receive → Stock |
+| **Order-to-Cash (Revenue Engine)** | Revenue side — everything leaving the business | Customer → Sale Order → Invoice → Payment |
+
+Stock is the bridge. Items bought via Purchase Orders appear in departments. Items sold via Sale Orders are drawn from that same stock. The Catalog links both sides — items have both a cost price (Procure-to-Pay) and a selling price (Order-to-Cash).
+
+---
+
 ## What's Live Today
 
-**Core inventory & operations**
+**Procure-to-Pay (Ops Engine)**
 - Multi-tenant architecture with role-based access control (RBAC)
 - Department management
 - Inventory items, stock tracking, and low-stock alerts
 - Transfer requests with approval workflow
-- Purchase orders and supplier management
-- Reports — overview dashboard, audit log, CSV export
+- Purchase orders with waybill/delivery note tracking, UoM per line, supplier management
+- Reports — PnL summary, spending by day/week/month, full audit log with PO details, CSV export
+
+**Order-to-Cash (Revenue Engine)**
+- Customer management
+- Catalog — products/services with selling price, cost price, margin %, and tax rates
+- Sale Orders — customer order builder with line items from catalog, confirm/cancel/invoice flow
+- Invoices — auto-calculated from order lines, mark sent, write-off, cancel
+- Payments — record payments against invoices (cash, card, bank transfer, mobile money, cheque), invoice auto-updates to PAID/PARTIALLY_PAID
 
 **Entity Engine (custom modules)**
 - Build any module with custom fields and field types
@@ -21,7 +41,7 @@
 **Platform**
 - Onboarding wizard (setup flow)
 - Demo mode with role switching
-- Live overview dashboard with per-period filters
+- Live overview dashboard with per-period filters (Today / 7d / 30d / All time / Custom)
 
 ---
 

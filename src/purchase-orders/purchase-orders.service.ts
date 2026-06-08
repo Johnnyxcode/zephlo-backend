@@ -54,11 +54,13 @@ export class PurchaseOrdersService {
         status: POStatus.PENDING_APPROVAL,
         requestedByName: dto.requestedByName ?? 'Staff',
         notes: dto.notes,
+        waybillNumber: dto.waybillNumber,
         expectedAt: dto.expectedAt ? new Date(dto.expectedAt) : undefined,
         lines: {
           create: dto.lines.map((l) => ({
             itemName: l.itemName,
             sku: l.sku,
+            unit: l.unit,
             quantity: l.quantity,
             unitCost: l.unitCost ?? 0,
           })),
