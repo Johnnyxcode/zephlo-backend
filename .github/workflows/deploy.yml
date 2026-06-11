@@ -1,0 +1,31 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /srv/zep/zephlo-backend
+            git pull origin main
+            docker build -t zep .
+            docker stop zep || true
+            docker rm zep || true
+            docker run -d \
+              --name zep \
+              --restart unless-stopped \
+              -p 3001:3000 \
+              --env-file .env \
+              -v /srv/zep/data:/data \
+              zep
