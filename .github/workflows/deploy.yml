@@ -19,7 +19,7 @@ jobs:
           script: |
             cd /srv/zep/zephlo-backend
             git pull origin main
-            docker build -t zep .
+            docker build --no-cache -t zep .
             docker stop zep || true
             docker rm zep || true
             docker run -d \
