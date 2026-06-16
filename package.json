@@ -24,6 +24,7 @@
     "db:reset": "prisma migrate reset --force"
   },
   "prisma": {
+    "schema": "prisma/schema",
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const p = require\\('./node_modules/@prisma/client/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(del prisma\\\\schema.prisma)"
+    ]
+  }
+}

@@ -116,4 +116,29 @@ export class CustomersService {
     await this.findOne(id);
     return this.prisma.customer.delete({ where: { id } });
   }
+
+  async getStatement(id: string) {
+    const { tenantId } = getTenantContext();
+    const customer = await this.prisma.customer.findFirst({ where: { id, tenantId } });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const [orders, invoices] = await Promise.all([
+      this.prisma.saleOrder.findMany({
+        where: { customerId: id, tenantId },
+        include: { lines: { include: { catalogItem: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.invoice.findMany({
+        where: { customerId: id, tenantId },
+        include: { payments: true, lines: true },
+        orderBy: { issueDate: 'desc' },
+      }),
+    ]);
+
+    const totalInvoiced = invoices.reduce((s, i) => s + i.total, 0);
+    const totalPaid = invoices.reduce((s, i) => s + i.paidAmount, 0);
+    const totalOutstanding = totalInvoiced - totalPaid;
+
+    return { customer, orders, invoices, summary: { totalInvoiced, totalPaid, totalOutstanding } };
+  }
 }

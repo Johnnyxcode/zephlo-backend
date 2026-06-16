@@ -1,0 +1,79 @@
+// ── Entity Engine — custom modules, fields, records, workflows ────────────────
+
+model EntityType {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  roles       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields   EntityField[]
+  records  EntityRecord[]
+  workflow WorkflowDefinition?
+
+  @@unique([tenantId, slug])
+}
+
+model EntityField {
+  id           String     @id @default(uuid())
+  entityTypeId String
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  fieldType    FieldType
+  required     Boolean    @default(false)
+  config       Json?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@unique([entityTypeId, key])
+}
+
+model EntityRecord {
+  id           String     @id @default(uuid())
+  tenantId     String
+  entityTypeId String
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id])
+  attributes   Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  workflow WorkflowInstance?
+}
+
+model WorkflowDefinition {
+  id           String     @id @default(uuid())
+  entityTypeId String     @unique
+  entityType   EntityType @relation(fields: [entityTypeId], references: [id], onDelete: Cascade)
+  states       Json
+  transitions  Json
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model WorkflowInstance {
+  id             String       @id @default(uuid())
+  entityRecordId String       @unique
+  entityRecord   EntityRecord @relation(fields: [entityRecordId], references: [id], onDelete: Cascade)
+  currentState   String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  events WorkflowEvent[]
+}
+
+model WorkflowEvent {
+  id                 String           @id @default(uuid())
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id])
+  fromState          String
+  toState            String
+  transitionLabel    String
+  actorName          String?
+  note               String?
+  createdAt          DateTime         @default(now())
+}

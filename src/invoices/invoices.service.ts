@@ -27,6 +27,21 @@ export class InvoiceLineDto {
   discount?: number;
 }
 
+export const PAYMENT_TERMS = ['DUE_ON_RECEIPT', 'NET_15', 'NET_30', 'NET_60'] as const;
+export type PaymentTerm = typeof PAYMENT_TERMS[number];
+
+function dueDateFromTerms(terms: PaymentTerm): Date {
+  const days: Record<PaymentTerm, number> = {
+    DUE_ON_RECEIPT: 0,
+    NET_15: 15,
+    NET_30: 30,
+    NET_60: 60,
+  };
+  const d = new Date();
+  d.setDate(d.getDate() + days[terms]);
+  return d;
+}
+
 export class CreateInvoiceDto {
   @IsString()
   customerId: string;
@@ -38,6 +53,10 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
 
   @IsOptional()
   @IsString()
@@ -102,8 +121,17 @@ export class InvoicesService {
     return `INV-${String(count + 1).padStart(4, '0')}`;
   }
 
-  findAll() {
+  async findAll() {
     const { tenantId } = getTenantContext();
+    const now = new Date();
+    await this.prisma.invoice.updateMany({
+      where: {
+        tenantId,
+        status: { in: ['SENT', 'PARTIALLY_PAID'] },
+        dueDate: { lt: now },
+      },
+      data: { status: 'OVERDUE' },
+    });
     return this.prisma.invoice.findMany({
       where: { tenantId },
       include: INVOICE_INCLUDE,
@@ -126,13 +154,21 @@ export class InvoicesService {
     const invoiceNumber = await this.nextInvoiceNumber(tenantId);
     const { computed, subtotal, taxAmount, total } = calcTotals(dto.lines, dto.discount);
 
+    let dueDate: Date | undefined;
+    if (dto.dueDate) {
+      dueDate = new Date(dto.dueDate);
+    } else if (dto.paymentTerms && PAYMENT_TERMS.includes(dto.paymentTerms as PaymentTerm)) {
+      dueDate = dueDateFromTerms(dto.paymentTerms as PaymentTerm);
+    }
+
     return this.prisma.invoice.create({
       data: {
         tenantId,
         invoiceNumber,
         customerId: dto.customerId,
         saleOrderId: dto.saleOrderId,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        dueDate,
+        paymentTerms: dto.paymentTerms,
         notes: dto.notes,
         discount: dto.discount ?? 0,
         subtotal,
@@ -155,7 +191,7 @@ export class InvoicesService {
     });
   }
 
-  async createFromOrder(orderId: string, dto: Partial<CreateInvoiceDto> & { createdByName?: string }) {
+  async createFromOrder(orderId: string, dto: Partial<CreateInvoiceDto> & { createdByName?: string; paymentTerms?: string }) {
     const { tenantId } = getTenantContext();
     const order = await this.prisma.saleOrder.findFirst({
       where: { id: orderId, tenantId },
@@ -178,6 +214,7 @@ export class InvoicesService {
       saleOrderId: orderId,
       notes: dto.notes,
       discount: dto.discount,
+      paymentTerms: dto.paymentTerms,
       createdByName: dto.createdByName,
       lines,
     });

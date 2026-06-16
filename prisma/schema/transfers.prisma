@@ -1,0 +1,46 @@
+// ── Transfers & domain events ─────────────────────────────────────────────────
+
+enum TransferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model TransferRequest {
+  id               String         @id @default(uuid())
+  tenantId         String
+  fromDepartmentId String
+  toDepartmentId   String
+  fromDepartment   Department     @relation("FromDepartment", fields: [fromDepartmentId], references: [id])
+  toDepartment     Department     @relation("ToDepartment", fields: [toDepartmentId], references: [id])
+  status           TransferStatus @default(PENDING_APPROVAL)
+  requestedByName  String?
+  approvedByName   String?
+  rejectionReason  String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  completedAt      DateTime?
+
+  lines TransferLine[]
+}
+
+model TransferLine {
+  id                String          @id @default(uuid())
+  transferRequestId String
+  transferRequest   TransferRequest @relation(fields: [transferRequestId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              Item            @relation(fields: [itemId], references: [id])
+  quantity          Float
+}
+
+model DomainEvent {
+  id        String   @id @default(uuid())
+  tenantId  String
+  type      String
+  actorName String?
+  payload   Json?
+  createdAt DateTime @default(now())
+}

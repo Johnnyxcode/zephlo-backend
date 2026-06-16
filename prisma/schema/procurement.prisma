@@ -1,0 +1,58 @@
+// ── Procurement — suppliers & purchase orders ─────────────────────────────────
+
+enum POStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id           String        @id @default(uuid())
+  tenantId     String
+  name         String
+  contactName  String?
+  contactEmail String?
+  phone        String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, name])
+}
+
+model PurchaseOrder {
+  id              String     @id @default(uuid())
+  tenantId        String
+  supplierId      String
+  departmentId    String
+  status          POStatus   @default(PENDING_APPROVAL)
+  requestedByName String?
+  approvedByName  String?
+  rejectionReason String?
+  notes           String?
+  waybillNumber   String?
+  expectedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  completedAt     DateTime?
+
+  supplier   Supplier   @relation(fields: [supplierId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  lines      POLine[]
+}
+
+model POLine {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  itemName        String
+  sku             String?
+  unit            String?
+  quantity        Float
+  unitCost        Float         @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+}

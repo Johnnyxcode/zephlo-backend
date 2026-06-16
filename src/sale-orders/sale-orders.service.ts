@@ -153,6 +153,26 @@ export class SaleOrdersService {
     });
   }
 
+  async sendAsQuote(id: string) {
+    const order = await this.findOne(id);
+    if (order.status !== 'DRAFT') throw new BadRequestException('Only DRAFT orders can be sent as quotes');
+    return this.prisma.saleOrder.update({
+      where: { id },
+      data: { status: 'QUOTE' },
+      include: ORDER_INCLUDE,
+    });
+  }
+
+  async convertQuoteToOrder(id: string) {
+    const order = await this.findOne(id);
+    if (order.status !== 'QUOTE') throw new BadRequestException('Only QUOTE orders can be converted to confirmed orders');
+    return this.prisma.saleOrder.update({
+      where: { id },
+      data: { status: 'DRAFT' },
+      include: ORDER_INCLUDE,
+    });
+  }
+
   async confirm(id: string) {
     const { tenantId } = getTenantContext();
     const order = await this.findOne(id);

@@ -19,6 +19,12 @@ export class SaleOrdersController {
     return this.saleOrdersService.update(id, dto);
   }
 
+  @Post(':id/send-as-quote')
+  sendAsQuote(@Param('id') id: string) { return this.saleOrdersService.sendAsQuote(id); }
+
+  @Post(':id/convert-to-order')
+  convertQuoteToOrder(@Param('id') id: string) { return this.saleOrdersService.convertQuoteToOrder(id); }
+
   @Post(':id/confirm')
   confirm(@Param('id') id: string) { return this.saleOrdersService.confirm(id); }
 

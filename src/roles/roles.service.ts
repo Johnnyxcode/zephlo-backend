@@ -9,13 +9,24 @@ import { getTenantContext } from '../common/tenant/tenant.context';
 import { CreateRoleDto } from './dto/create-role.dto';
 
 export const SYSTEM_CAPABILITIES: Record<string, string> = {
+  // Page access
+  view_overview: 'View dashboard & overview',
   view_stock: 'View department stock',
+  view_transfers: 'View transfers',
+  view_approvals: 'View approvals queue',
+  view_purchase_orders: 'View purchase orders',
+  view_reports: 'View reports & export',
+  view_catalog: 'View product catalog',
+  view_customers: 'View customers',
+  view_sale_orders: 'View sale orders',
+  view_invoices: 'View invoices',
+  // Actions
   request_transfer: 'Request stock transfers',
   approve_transfer: 'Approve / reject transfers',
   create_po: 'Raise purchase orders',
   approve_po: 'Approve / reject purchase orders',
   receive_po: 'Mark PO as received',
-  view_reports: 'View reports & export',
+  // Admin
   manage_config: 'Configure departments & fields',
   manage_entity_types: 'Manage entity types',
 };
@@ -26,9 +37,12 @@ const DEFAULT_ROLES = [
     slug: 'admin',
     color: 'purple',
     capabilities: [
-      'view_stock', 'request_transfer', 'approve_transfer',
+      'view_overview', 'view_stock', 'view_transfers', 'view_approvals',
+      'view_purchase_orders', 'view_reports', 'view_catalog', 'view_customers',
+      'view_sale_orders', 'view_invoices',
+      'request_transfer', 'approve_transfer',
       'create_po', 'approve_po', 'receive_po',
-      'view_reports', 'manage_config', 'manage_entity_types',
+      'manage_config', 'manage_entity_types',
     ],
   },
   {
@@ -36,15 +50,21 @@ const DEFAULT_ROLES = [
     slug: 'manager',
     color: 'blue',
     capabilities: [
-      'view_stock', 'request_transfer', 'approve_transfer',
-      'approve_po', 'receive_po', 'view_reports',
+      'view_overview', 'view_stock', 'view_transfers', 'view_approvals',
+      'view_purchase_orders', 'view_reports', 'view_catalog', 'view_customers',
+      'view_sale_orders', 'view_invoices',
+      'request_transfer', 'approve_transfer', 'approve_po', 'receive_po',
     ],
   },
   {
     name: 'Staff',
     slug: 'staff',
     color: 'slate',
-    capabilities: ['view_stock', 'request_transfer'],
+    capabilities: [
+      'view_stock', 'view_transfers', 'view_catalog',
+      'view_customers', 'view_sale_orders', 'view_invoices',
+      'request_transfer',
+    ],
   },
 ];
 
@@ -63,16 +83,32 @@ export class RolesService {
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
 
-    // Lazy-seed defaults for tenants created before the roles feature existed
     if (roles.length === 0) {
+      // Lazy-seed defaults for tenants created before the roles feature existed
       await this.seedDefaults(tenantId);
-      roles = await this.prisma.role.findMany({
-        where: { tenantId },
-        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-      });
+    } else {
+      // Merge any new capabilities into existing default roles without overwriting customisations
+      await this.patchDefaultCapabilities(roles);
     }
 
-    return roles;
+    return this.prisma.role.findMany({
+      where: { tenantId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  private async patchDefaultCapabilities(roles: { id: string; slug: string; isDefault: boolean; capabilities: unknown }[]) {
+    for (const def of DEFAULT_ROLES) {
+      const existing = roles.find((r) => r.slug === def.slug && r.isDefault);
+      if (!existing) continue;
+      const current = new Set(existing.capabilities as string[]);
+      const missing = def.capabilities.filter((c) => !current.has(c));
+      if (missing.length === 0) continue;
+      await this.prisma.role.update({
+        where: { id: existing.id },
+        data: { capabilities: [...current, ...missing] },
+      });
+    }
   }
 
   async create(dto: CreateRoleDto) {

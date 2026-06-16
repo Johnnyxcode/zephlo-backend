@@ -15,6 +15,11 @@ export class CustomersController {
     return this.customersService.findOne(id);
   }
 
+  @Get(':id/statement')
+  getStatement(@Param('id') id: string) {
+    return this.customersService.getStatement(id);
+  }
+
   @Post()
   create(@Body() dto: CreateCustomerDto) {
     return this.customersService.create(dto);

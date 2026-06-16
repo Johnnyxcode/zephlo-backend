@@ -1,0 +1,81 @@
+// ── Inventory — departments, items, stock movements ──────────────────────────
+
+model Department {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fieldDefinitions FieldDefinition[]
+  items            Item[]
+  users            User[]
+  linksFrom        DepartmentLink[]    @relation("FromDepartment")
+  linksTo          DepartmentLink[]    @relation("ToDepartment")
+  transfersOut     TransferRequest[]   @relation("FromDepartment")
+  transfersIn      TransferRequest[]   @relation("ToDepartment")
+  movements        InventoryMovement[]
+  purchaseOrders   PurchaseOrder[]
+
+  @@unique([tenantId, name])
+}
+
+model FieldDefinition {
+  id           String     @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  type         FieldType
+  required     Boolean    @default(false)
+  config       Json?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@unique([departmentId, key])
+}
+
+model DepartmentLink {
+  id               String     @id @default(uuid())
+  tenantId         String
+  fromDepartmentId String
+  toDepartmentId   String
+  fromDepartment   Department @relation("FromDepartment", fields: [fromDepartmentId], references: [id], onDelete: Cascade)
+  toDepartment     Department @relation("ToDepartment", fields: [toDepartmentId], references: [id], onDelete: Cascade)
+  requiresApproval Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+
+  @@unique([fromDepartmentId, toDepartmentId])
+}
+
+model Item {
+  id           String     @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name         String
+  sku          String?
+  attributes   Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  movements     InventoryMovement[]
+  transferLines TransferLine[]
+  catalogItems  CatalogItem[]
+}
+
+model InventoryMovement {
+  id            String     @id @default(uuid())
+  tenantId      String
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+  itemId        String
+  item          Item       @relation(fields: [itemId], references: [id])
+  quantityDelta Float
+  balanceAfter  Float
+  referenceType String
+  referenceId   String?
+  createdAt     DateTime   @default(now())
+  createdByName String?
+}
