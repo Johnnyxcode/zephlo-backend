@@ -3,8 +3,8 @@ set -e
 
 mkdir -p /data
 
-echo "Running database migrations..."
-npx prisma migrate deploy
+echo "Applying database schema..."
+npx prisma db push --accept-data-loss
 
 if [ "${SEED_ON_START:-true}" = "true" ]; then
   echo "Seeding demo data..."

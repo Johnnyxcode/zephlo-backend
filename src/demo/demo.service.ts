@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -69,23 +69,30 @@ type RevenueEngineSeed = {
 
 @Injectable()
 export class DemoService {
+  private readonly logger = new Logger(DemoService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
   ) {}
 
   async seedScenario(scenario: Scenario) {
+    this.logger.log(`Seeding scenario: ${scenario}`);
     const config = scenario === 'restaurant'
       ? this.restaurantConfig()
       : this.clinicConfig();
 
     const existing = await this.prisma.tenant.findUnique({ where: { slug: config.slug } });
-    if (existing) await this.wipeTenant(existing.id);
+    if (existing) {
+      this.logger.log(`Wiping existing tenant: ${existing.id}`);
+      await this.wipeTenant(existing.id);
+    }
 
     const tenant = await this.prisma.tenant.create({
       data: { name: config.name, slug: config.slug },
     });
     const tenantId = tenant.id;
+    this.logger.log(`Tenant created: ${tenantId}`);
 
     // ── Departments ────────────────────────────────────────────────────────────
     const deptMap: Record<string, string> = {};
@@ -103,12 +110,16 @@ export class DemoService {
       }
     }
 
+    this.logger.log('Departments done');
+
     // ── Connections ────────────────────────────────────────────────────────────
     for (const conn of config.connections) {
       await this.prisma.departmentLink.create({
         data: { tenantId, fromDepartmentId: deptMap[conn.from], toDepartmentId: deptMap[conn.to], requiresApproval: conn.requiresApproval },
       });
     }
+
+    this.logger.log('Connections done');
 
     // ── Suppliers ──────────────────────────────────────────────────────────────
     const supplierMap: Record<string, string> = {};
@@ -118,6 +129,8 @@ export class DemoService {
       });
       supplierMap[sup.key] = s.id;
     }
+
+    this.logger.log('Suppliers done');
 
     // ── Inventory items ────────────────────────────────────────────────────────
     const itemMap: Record<string, string> = {};
@@ -135,6 +148,8 @@ export class DemoService {
         });
       }
     }
+
+    this.logger.log('Items done');
 
     // ── Completed transfers ────────────────────────────────────────────────────
     for (const t of config.completedTransfers) {
@@ -170,6 +185,8 @@ export class DemoService {
       }
     }
 
+    this.logger.log('Completed transfers done');
+
     // ── Pending transfer ───────────────────────────────────────────────────────
     if (config.pendingTransfer) {
       const pt = config.pendingTransfer;
@@ -184,6 +201,8 @@ export class DemoService {
         },
       });
     }
+
+    this.logger.log('Pending transfer done');
 
     // ── Purchase orders ────────────────────────────────────────────────────────
     if (config.approvedPO) {
@@ -207,6 +226,8 @@ export class DemoService {
         },
       });
     }
+
+    this.logger.log('Purchase orders done');
 
     // ── Entity types (modules) ─────────────────────────────────────────────────
     // recordRefMap: "entityTypeSlug:recordKey" → dbId (for resolving RELATION field values)
@@ -273,6 +294,8 @@ export class DemoService {
         }
       }
     }
+
+    this.logger.log('Entity types done');
 
     // ── Revenue Engine ─────────────────────────────────────────────────────────
     if (config.revenueEngine) {
@@ -363,10 +386,13 @@ export class DemoService {
       }
     }
 
+    this.logger.log('Revenue engine done');
+
     await this.prisma.domainEvent.create({
       data: { tenantId, type: 'demo.seeded', actorName: 'System', payload: { scenario } },
     });
 
+    this.logger.log(`Seed complete: ${config.slug}`);
     return { tenantSlug: config.slug, tenantName: config.name };
   }
 
