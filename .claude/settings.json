@@ -2,7 +2,23 @@
   "permissions": {
     "allow": [
       "Bash(node -e \"const p = require\\('./node_modules/@prisma/client/package.json'\\); console.log\\(p.version\\)\")",
-      "Bash(del prisma\\\\schema.prisma)"
+      "Bash(del prisma\\\\schema.prisma)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(ls \"c:\\\\Dele\\\\zephlo\\\\\" && echo \"---\" && ls \"c:\\\\Dele\\\\zephlo\\\\zephlo-backend\\\\\" | head -20)",
+      "Read(//c/Dele/**)",
+      "Bash(xargs grep -l \"DEFAULT_TENANT_SLUG\\\\|tenant.context\\\\|TenantMiddleware\")",
+      "Bash(docker-compose down *)",
+      "Bash(docker-compose build *)",
+      "Bash(docker-compose up *)",
+      "Bash(Get-Content prisma\\\\schema\\\\platform.prisma, prisma\\\\schema\\\\inventory.prisma, prisma\\\\schema\\\\transfers.prisma, prisma\\\\schema\\\\procurement.prisma, prisma\\\\schema\\\\entity-engine.prisma, prisma\\\\schema\\\\revenue.prisma, prisma\\\\schema\\\\base.prisma)",
+      "Bash(node -e 'const { PrismaClient } = require\\('\\\\''@prisma/client'\\\\''\\); const p = new PrismaClient\\(\\); p.tenant.count\\(\\).then\\(n => { console.log\\('\\\\''tenants:'\\\\'', n\\); p.$disconnect\\(\\); }\\).catch\\(e => { console.error\\('\\\\''DB ERROR:'\\\\'', e.message\\); p.$disconnect\\(\\); }\\);')",
+      "Bash(dir prisma\\\\migrations /B)",
+      "Bash(node dist/src/main.js)",
+      "Bash(curl -s -X POST \"http://localhost:3000/api/v1/demo/seed?secret=\" -H \"Content-Type: application/json\" -d '{\"scenario\":\"restaurant\"}')",
+      "Bash(kill %1)",
+      "Bash(netstat -ano)"
     ]
   }
 }

@@ -111,6 +111,7 @@ model Invoice {
   issueDate     DateTime      @default(now())
   dueDate       DateTime?
   paymentTerms  String?
+  reference     String?
   notes         String?
   discount      Float         @default(0)
   subtotal      Float         @default(0)

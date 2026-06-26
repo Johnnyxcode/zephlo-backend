@@ -89,7 +89,7 @@ export class DemoService {
     }
 
     const tenant = await this.prisma.tenant.create({
-      data: { name: config.name, slug: config.slug },
+      data: { name: config.name, slug: config.slug, industry: scenario },
     });
     const tenantId = tenant.id;
     this.logger.log(`Tenant created: ${tenantId}`);
@@ -555,12 +555,25 @@ export class DemoService {
           { name: 'Zero-rated', rate: 0 },
         ],
         catalogItems: [
-          { key: 'salmon', name: 'Grilled Salmon', sku: 'FOOD-001', sellingPrice: 18.50, costPrice: 7.00, unit: 'portion', taxRateKey: 'VAT 20%' },
-          { key: 'chicken_pasta', name: 'Chicken Pasta', sku: 'FOOD-002', sellingPrice: 14.00, costPrice: 4.50, unit: 'portion', taxRateKey: 'VAT 20%' },
-          { key: 'steak', name: 'Ribeye Steak', sku: 'FOOD-003', sellingPrice: 26.00, costPrice: 10.00, unit: 'portion', taxRateKey: 'VAT 20%' },
-          { key: 'red_wine', name: 'House Red Wine (bottle)', sku: 'DRK-001', sellingPrice: 22.00, costPrice: 6.50, unit: 'bottle', taxRateKey: 'VAT 20%' },
-          { key: 'still_water', name: 'Still Water (500ml)', sku: 'DRK-002', sellingPrice: 3.50, costPrice: 0.50, unit: 'bottle', taxRateKey: 'VAT 20%' },
-          { key: 'dessert', name: 'Chocolate Fondant', sku: 'FOOD-004', sellingPrice: 7.50, costPrice: 2.00, unit: 'portion', taxRateKey: 'VAT 20%' },
+          // ── Food / Kitchen ───────────────────────────────────────────────
+          { key: 'salmon',        name: 'Grilled Salmon',        sku: 'FOOD-001', sellingPrice: 18.50, costPrice: 7.00,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'chicken_pasta', name: 'Chicken Pasta',         sku: 'FOOD-002', sellingPrice: 14.00, costPrice: 4.50,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'steak',         name: 'Ribeye Steak',          sku: 'FOOD-003', sellingPrice: 26.00, costPrice: 10.00, unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'jollof',        name: 'Jollof Rice',           sku: 'FOOD-004', sellingPrice: 12.00, costPrice: 3.50,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'grilled_chk',   name: 'Grilled Chicken',       sku: 'FOOD-005', sellingPrice: 15.00, costPrice: 5.00,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'burger',        name: 'Beef Burger',           sku: 'FOOD-006', sellingPrice: 13.50, costPrice: 4.00,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'salad',         name: 'Caesar Salad',          sku: 'FOOD-007', sellingPrice: 10.00, costPrice: 2.50,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          // ── Drinks / Bar ─────────────────────────────────────────────────
+          { key: 'red_wine',      name: 'House Red Wine',        sku: 'DRK-001',  sellingPrice: 22.00, costPrice: 6.50,  unit: 'bottle',  taxRateKey: 'VAT 20%' },
+          { key: 'still_water',   name: 'Still Water',           sku: 'DRK-002',  sellingPrice: 3.50,  costPrice: 0.50,  unit: 'bottle',  taxRateKey: 'VAT 20%' },
+          { key: 'orange_juice',  name: 'Fresh Orange Juice',    sku: 'DRK-003',  sellingPrice: 4.50,  costPrice: 1.00,  unit: 'glass',   taxRateKey: 'VAT 20%' },
+          { key: 'cola',          name: 'Coca-Cola',             sku: 'DRK-004',  sellingPrice: 3.00,  costPrice: 0.70,  unit: 'can',     taxRateKey: 'VAT 20%' },
+          { key: 'beer',          name: 'Draught Beer',          sku: 'DRK-005',  sellingPrice: 6.00,  costPrice: 1.80,  unit: 'pint',    taxRateKey: 'VAT 20%' },
+          { key: 'white_wine',    name: 'White Wine',            sku: 'DRK-006',  sellingPrice: 8.00,  costPrice: 2.50,  unit: 'glass',   taxRateKey: 'VAT 20%' },
+          // ── Desserts ─────────────────────────────────────────────────────
+          { key: 'fondant',       name: 'Chocolate Fondant',     sku: 'DESS-001', sellingPrice: 7.50,  costPrice: 2.00,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'ice_cream',     name: 'Ice Cream (2 scoops)',  sku: 'DESS-002', sellingPrice: 5.00,  costPrice: 1.20,  unit: 'portion', taxRateKey: 'VAT 20%' },
+          { key: 'cheesecake',    name: 'Cheesecake',            sku: 'DESS-003', sellingPrice: 6.50,  costPrice: 1.80,  unit: 'portion', taxRateKey: 'VAT 20%' },
         ],
         customers: [
           { key: 'emma', name: 'Emma Thompson', email: 'emma.thompson@hartley-corp.co.uk', phone: '07700 900501', address: '12 Hartley Place, London, EC2A 1NT', notes: 'Monthly corporate dinner account' },
@@ -571,26 +584,28 @@ export class DemoService {
           {
             customerKey: 'lawson', reference: 'EVT-2026-Q2', status: 'INVOICED', notes: 'Q2 corporate dinner — 8 guests',
             lines: [
-              { catalogItemKey: 'salmon', quantity: 3, unitPrice: 18.50 },
-              { catalogItemKey: 'steak', quantity: 2, unitPrice: 26.00 },
-              { catalogItemKey: 'chicken_pasta', quantity: 3, unitPrice: 14.00 },
-              { catalogItemKey: 'red_wine', quantity: 3, unitPrice: 22.00 },
+              { catalogItemKey: 'salmon',        quantity: 3, unitPrice: 18.50 },
+              { catalogItemKey: 'steak',          quantity: 2, unitPrice: 26.00 },
+              { catalogItemKey: 'chicken_pasta',  quantity: 3, unitPrice: 14.00 },
+              { catalogItemKey: 'red_wine',       quantity: 3, unitPrice: 22.00 },
+              { catalogItemKey: 'fondant',        quantity: 4, unitPrice: 7.50 },
             ],
           },
           {
-            customerKey: 'emma', reference: 'TBL-042', status: 'CONFIRMED', notes: 'Table booking — lunch for 2',
+            customerKey: 'emma', reference: 'TABLE-3', status: 'CONFIRMED', notes: 'Table 3 — lunch for 2',
             lines: [
-              { catalogItemKey: 'salmon', quantity: 1, unitPrice: 18.50 },
-              { catalogItemKey: 'chicken_pasta', quantity: 1, unitPrice: 14.00 },
-              { catalogItemKey: 'still_water', quantity: 2, unitPrice: 3.50 },
+              { catalogItemKey: 'salmon',         quantity: 1, unitPrice: 18.50 },
+              { catalogItemKey: 'chicken_pasta',  quantity: 1, unitPrice: 14.00 },
+              { catalogItemKey: 'still_water',    quantity: 2, unitPrice: 3.50 },
+              { catalogItemKey: 'cheesecake',     quantity: 2, unitPrice: 6.50 },
             ],
           },
           {
-            customerKey: 'oliver', reference: 'TBL-051', status: 'DRAFT', notes: 'Saturday dinner — awaiting confirmation',
+            customerKey: 'oliver', reference: 'TABLE-7', status: 'DRAFT', notes: 'Table 7 — Saturday dinner',
             lines: [
-              { catalogItemKey: 'steak', quantity: 1, unitPrice: 26.00 },
-              { catalogItemKey: 'red_wine', quantity: 1, unitPrice: 22.00 },
-              { catalogItemKey: 'dessert', quantity: 1, unitPrice: 7.50 },
+              { catalogItemKey: 'steak',          quantity: 1, unitPrice: 26.00 },
+              { catalogItemKey: 'red_wine',       quantity: 1, unitPrice: 22.00 },
+              { catalogItemKey: 'fondant',        quantity: 1, unitPrice: 7.50 },
             ],
           },
         ],
@@ -599,20 +614,23 @@ export class DemoService {
             customerKey: 'lawson', saleOrderKey: 'order_0', status: 'PAID',
             dueDate: '2026-06-15', notes: 'Q2 corporate dinner — 30-day terms',
             lines: [
-              { catalogItemKey: 'salmon', description: 'Grilled Salmon × 3', quantity: 3, unitPrice: 18.50, taxRate: 20 },
-              { catalogItemKey: 'steak', description: 'Ribeye Steak × 2', quantity: 2, unitPrice: 26.00, taxRate: 20 },
-              { catalogItemKey: 'chicken_pasta', description: 'Chicken Pasta × 3', quantity: 3, unitPrice: 14.00, taxRate: 20 },
-              { catalogItemKey: 'red_wine', description: 'House Red Wine × 3', quantity: 3, unitPrice: 22.00, taxRate: 20 },
+              { catalogItemKey: 'salmon',       description: 'Grilled Salmon × 3',   quantity: 3, unitPrice: 18.50, taxRate: 20 },
+              { catalogItemKey: 'steak',        description: 'Ribeye Steak × 2',     quantity: 2, unitPrice: 26.00, taxRate: 20 },
+              { catalogItemKey: 'chicken_pasta',description: 'Chicken Pasta × 3',    quantity: 3, unitPrice: 14.00, taxRate: 20 },
+              { catalogItemKey: 'red_wine',     description: 'House Red Wine × 3',   quantity: 3, unitPrice: 22.00, taxRate: 20 },
+              { catalogItemKey: 'fondant',      description: 'Chocolate Fondant × 4',quantity: 4, unitPrice: 7.50,  taxRate: 20 },
             ],
-            payments: [{ amount: 241.20, method: 'BANK_TRANSFER', reference: 'BACS-20260601', notes: 'Full settlement' }],
+            payments: [{ amount: 271.20, method: 'BANK_TRANSFER', reference: 'BACS-20260601', notes: 'Full settlement' }],
           },
           {
-            customerKey: 'emma', status: 'SENT',
-            dueDate: '2026-06-20', notes: 'Monthly account — May dining',
+            customerKey: 'emma', status: 'SENT', notes: 'Table 3 — open bill',
             lines: [
-              { description: 'May dining — 3 visits', quantity: 1, unitPrice: 95.00, taxRate: 20 },
+              { catalogItemKey: 'salmon',       description: 'Grilled Salmon',        quantity: 1, unitPrice: 18.50, taxRate: 20 },
+              { catalogItemKey: 'chicken_pasta',description: 'Chicken Pasta',         quantity: 1, unitPrice: 14.00, taxRate: 20 },
+              { catalogItemKey: 'still_water',  description: 'Still Water × 2',       quantity: 2, unitPrice: 3.50,  taxRate: 20 },
+              { catalogItemKey: 'cheesecake',   description: 'Cheesecake × 2',        quantity: 2, unitPrice: 6.50,  taxRate: 20 },
             ],
-            payments: [{ amount: 50.00, method: 'BANK_TRANSFER', reference: 'BACS-20260605', notes: 'Partial payment' }],
+            payments: [],
           },
         ],
       } as RevenueEngineSeed,

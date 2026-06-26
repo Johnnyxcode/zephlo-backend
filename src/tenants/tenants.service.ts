@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { getTenantContext } from '../common/tenant/tenant.context';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 
 function slugify(name: string): string {
   return name
@@ -45,6 +46,14 @@ export class TenantsService {
     await this.rolesService.seedDefaults(tenant.id);
 
     return tenant;
+  }
+
+  async updateCurrent(dto: UpdateTenantDto) {
+    const { tenantId } = getTenantContext();
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { ...(dto.industry !== undefined && { industry: dto.industry }) },
+    });
   }
 
   getCurrent() {

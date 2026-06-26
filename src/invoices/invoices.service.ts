@@ -60,6 +60,10 @@ export class CreateInvoiceDto {
 
   @IsOptional()
   @IsString()
+  reference?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 
   @IsOptional()
@@ -169,6 +173,7 @@ export class InvoicesService {
         saleOrderId: dto.saleOrderId,
         dueDate,
         paymentTerms: dto.paymentTerms,
+        reference: dto.reference,
         notes: dto.notes,
         discount: dto.discount ?? 0,
         subtotal,
